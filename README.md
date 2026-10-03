@@ -2,8 +2,8 @@
 
 A WordPress plugin that embeds public Google Sheets, Google Apps Script web apps, CSV files, and SQL query results in posts and pages. Data is shown as a sortable, searchable HTML table or an interactive Google Chart. The plugin can also embed live previews of PDF, DOC, XLS, and other documents through the Google Docs Viewer.
 
-- **Version:** 0.13.2
-- **Requires:** WordPress 4.0 or later, PHP 5.3 or later (tested up to WordPress 5.4)
+- **Version:** 0.14.0
+- **Requires:** WordPress 6.2 or later, PHP 7.4 or later (tested with WordPress 6.2 and 7.1, and PHP 7.4 to 8.5)
 - **License:** [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 
 This repository is a fork of [fabacab/inline-gdocs-viewer](https://github.com/fabacab/inline-gdocs-viewer). This README is an overview. The full documentation is in [docs/](docs/):
@@ -42,10 +42,9 @@ The plugin chooses how to handle a source from the `key` value:
 | `key` value | Result |
 | --- | --- |
 | Google Sheets URL (or document ID) | HTML table or chart |
-| `https://script.google.com/...` web app URL | The web app's output, inserted as-is (CSV output becomes a table) |
+| `https://script.google.com/...` web app URL | The web app's output (CSV output becomes a table). Unsafe HTML is removed unless the author may post unfiltered HTML |
 | URL ending in `.csv` | HTML table or chart |
 | `wordpress` | Runs a SQL `SELECT` on the site's database |
-| `mysql://user:password@host:port/database` | Runs a SQL `SELECT` on a remote MySQL server |
 | Any other URL | Google Docs Viewer `<iframe>` |
 
 ```text
@@ -54,7 +53,9 @@ The plugin chooses how to handle a source from the `key` value:
 [gdoc key="http://example.com/my_final_paper.pdf" style="min-height:780px;border:none;"]
 ```
 
-SQL sources work only after an administrator turns on SQL queries in the plugin's settings screen. The post author must also have the `gdoc_query_sql_databases` capability, and only `SELECT` statements are accepted:
+Data sources must be public `http` or `https` addresses; addresses on your server or private network are refused unless you allow them with the `gdoc_url_allowed` filter.
+
+SQL sources work only after an administrator turns on SQL queries in the plugin's settings screen. A query runs only if the post was last saved by a user with the `gdoc_query_sql_databases` capability (Administrators, by default), and only single read-only `SELECT` statements are accepted. Remote MySQL databases are no longer supported:
 
 ```text
 [gdoc key="wordpress" query="SELECT display_name AS Name, user_registered AS 'Registration Date' FROM wp_users"]
@@ -94,7 +95,7 @@ Every table has the `igsv-table` class, and its rows and cells have `row-N`, `co
 
 ## Charts
 
-Add a `chart` attribute to draw a [Google Chart](https://developers.google.com/chart/interactive/docs/gallery) instead of a table. The supported types are `AnnotatedTimeLine`, `Annotation`, `Area`, `Bar`, `Bubble`, `Candlestick`, `Column`, `Combo`, `Gauge`, `Geo`, `Histogram`, `Line`, `Pie`, `Scatter`, `Stepped`, and `Timeline`.
+Add a `chart` attribute to draw a [Google Chart](https://developers.google.com/chart/interactive/docs/gallery) instead of a table. The supported types are `Annotation`, `Area`, `Bar`, `Bubble`, `Candlestick`, `Column`, `Combo`, `Gauge`, `Geo`, `Histogram`, `Line`, `Pie`, `Scatter`, `Stepped`, and `Timeline`. (`AnnotatedTimeLine`, which Google retired, now draws an `Annotation` chart.)
 
 ```text
 [gdoc key="ABCDEFG" chart="Bar" title="Total goals per team"]
@@ -118,7 +119,7 @@ Use `query` to filter or reshape a Google Sheet or CSV file with the [Google Vis
 [gdoc key="ABCDEFG" query="select A, B order by B desc limit 1"]
 ```
 
-WordPress removes text after `<` or `>` in shortcode attributes. In queries, write them as `%3C` and `%3E`.
+WordPress removes text after `<` or `>` in shortcode attributes. In queries, write them as `%3C` and `%3E`. In queries on CSV files, you can refer to columns by letter or by their header text.
 
 ## Caching
 
@@ -134,8 +135,9 @@ Fetched data is cached with WordPress transients for 10 minutes. Use `expire_in`
 | `gdoc_query` | The `query` value (also receives the shortcode attributes) |
 | `gdoc_enqueued_front_end_styles` | The stylesheets the plugin enqueues |
 | `gdoc_enqueued_front_end_scripts` | The scripts the plugin enqueues |
+| `gdoc_url_allowed` | Whether a data source URL may be fetched (only public addresses by default) |
 
-The plugin loads its scripts and stylesheets on every front-end page. To remove the ones a site doesn't need, unset their handles with the enqueue filters:
+The plugin loads its scripts and stylesheets only on pages that show the shortcode, or on every page if you turn on **Load table scripts on every page?** in its settings. To remove the ones a site doesn't need, unset their handles with the enqueue filters:
 
 ```php
 add_filter( 'gdoc_enqueued_front_end_scripts', function ( $scripts ) {
@@ -150,13 +152,38 @@ The [reference](docs/reference.md) lists every registered handle, along with eve
 
 | Path | Contents |
 | --- | --- |
-| `inline-gdocs-viewer.php` | The plugin: shortcode, data fetching and caching, HTML rendering, settings screen, and the data-source proxy for charts |
+| `inline-gdocs-viewer.php` | The plugin: shortcode, data fetching and caching, HTML rendering, settings screen, and the signed data source endpoint for charts |
 | `igsv-datatables.js`, `igsv-gvizcharts.js` | Front-end setup for DataTables and Google Charts |
+| `assets/vendor/` | Bundled DataTables, JSZip, and pdfmake files, each with its license ([details](assets/vendor/README.md)) |
 | `lib/` | A bundled query-language engine (Apache-2.0) that runs queries on CSV data on the server |
 | `languages/` | DataTables translation files and the plugin's `.pot` translation template |
-| `uninstall.php` | Deletes the plugin's settings, cached data, and capabilities when it's uninstalled |
+| `uninstall.php` | Deletes the plugin's settings, cached data, post meta, and capabilities when it's uninstalled |
+| `tests/` | PHPUnit tests (`tests/phpunit/`) and Playwright browser tests (`tests/e2e/`) |
 
-There's no build step. Third-party front-end libraries load from CDNs.
+There's no build step. The Google Charts loader is the only script loaded from a third party.
+
+## Development
+
+You need Docker, Node.js 20 or later, and Composer.
+
+```sh
+composer install          # PHPUnit, PHPCS, and the WordPress coding standards
+npm install               # wp-env and Playwright
+npx playwright install chromium
+npm run env:start         # WordPress at http://localhost:8888 (tests use :8889)
+
+npm run test:php          # PHPUnit in the wp-env test container
+npm run test:e2e          # Browser tests against http://localhost:8888
+IGSV_LIVE_SHEET="https://docs.google.com/spreadsheets/d/<id>/edit" npm run test:e2e:live
+                          # Live tests against a real public Google Sheet
+composer lint             # PHPCS: WordPress security rules and PHP 7.4+ compatibility
+```
+
+Run a single PHPUnit test with `npx wp-env run tests-cli --env-cwd=wp-content/plugins/inline-gdocs-viewer vendor/bin/phpunit --filter test_name`. To test another PHP version, start wp-env with `WP_ENV_PHP_VERSION=8.1` (for example). GitHub Actions runs all of these on every push; see [.github/workflows/tests.yml](.github/workflows/tests.yml).
+
+The live tests (`tests/e2e/live-google.spec.js`) fetch a real public Google Sheet, so run them by hand before a release; they skip themselves when `IGSV_LIVE_SHEET` isn't set. They compare the plugin's tables, queries, and charts with what Google returns for the same request. The sheet needs headers in row 1, a text column A, a date-like text column C, and a number column I.
+
+The browser tests use a must-use plugin (`tests/e2e/mu-plugin.php`, mapped into the development site only) that serves fixture CSV files for `https://example.test/` URLs.
 
 ## License
 
@@ -164,4 +191,6 @@ This plugin is free software released under the [GNU General Public License v3.0
 
 This repository is a modified version of [fabacab/inline-gdocs-viewer](https://github.com/fabacab/inline-gdocs-viewer), the plugin originally written by maymay. Changes began on 2026-10-03, and each one is listed in [CHANGELOG.md](CHANGELOG.md). The documentation in `docs/` and `CHANGELOG.md` is adapted from the original plugin's `readme.txt`.
 
-The query engine in `lib/` (`vistable.php`, `visparser.php`, `visformat.php`) is Copyright 2008-2009 Mark Williams and licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0), which is compatible with GPL-3.0. Its original license headers are kept unchanged.
+The query engine in `lib/` (`vistable.php`, `visparser.php`, `visformat.php`) is Copyright 2008-2009 Mark Williams and licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0), which is compatible with GPL-3.0. Its original license headers are kept unchanged, and each modified file lists its changes below the header.
+
+The libraries in `assets/vendor/` are MIT-licensed, except JSZip (MIT or GPL-3.0) and the Roboto font embedded in pdfmake (Apache-2.0). Each library's folder contains its license.

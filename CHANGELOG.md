@@ -2,7 +2,51 @@
 
 ## Unreleased (fork)
 
-Changes made on 2026-10-03 in the fork at <https://github.com/e7andy/inline-gdocs-viewer>, a modified version of <https://github.com/fabacab/inline-gdocs-viewer>.
+Nothing yet.
+
+## 0.14.0 (fork) - 2026-10-03
+
+Changes made on 2026-10-03 in the fork at <https://github.com/e7andy/inline-gdocs-viewer>, a modified version of <https://github.com/fabacab/inline-gdocs-viewer>. This release fixes security problems found in an audit of 0.13.2. Update as soon as possible.
+
+### Security
+
+- Security: Authors (Contributor and up) could write files anywhere on the server, and so run their own code, through the `http_opts` attribute (`stream` and `filename`). `http_opts` now accepts only `method` (GET, POST, HEAD), `timeout` (1-30), `redirection` (0-5), `user-agent`, `headers`, and `body`.
+- Security: The chart data proxy let anyone who could see a chart page make the server fetch any URL, including internal services and cloud metadata addresses, and read the result. The proxy is replaced by an endpoint (`?igsv_datasource=1`) that only serves data sources defined by a shortcode, signed with the site's secret key. The old `gdoc_get_datasource_nonce` endpoint is gone, and rendering a chart no longer writes to the database.
+- Security: All data source requests now refuse addresses that are not public `http` or `https` addresses (including redirects to them), and use `wp_safe_remote_request()`. A new `gdoc_url_allowed` filter can allow trusted private addresses.
+- Security: The query engine's HTML error output repeated the query unescaped, which allowed reflected cross-site scripting. The data source endpoint now only returns JavaScript `setResponse()` calls with `X-Content-Type-Options: nosniff`, and the engine escapes its HTML error output.
+- Security: `chart_*` attribute values could break out of their HTML attribute (cross-site scripting). They are now escaped, and the content inside a chart shortcode is filtered with `wp_kses_post()`.
+- Security: HTML from Apps Script web apps, including bare web app URLs pasted into a post, is filtered with `wp_kses_post()` unless the post's author may publish unfiltered HTML.
+- Security: `datatables_ajax`, `datatables_data`, and `datatables_server_side` are ignored unless the post's author may publish unfiltered HTML, because DataTables displays that data as HTML.
+- Security: A SQL query runs only if the post was last saved, with that exact query, by a user with the `gdoc_query_sql_databases` capability. Previously, an Editor could add a query to a post written by an Administrator. Queries must be a single `SELECT` without comments, `INTO`, `LOAD_FILE()`, `SLEEP()`, `BENCHMARK()`, or locking; they run in a read-only transaction; and SQL errors are no longer shown on the page.
+- Security: Responses are cached as JSON instead of serialized PHP objects, so the cache is never passed to `unserialize()`.
+- Security: The DataTables defaults on the settings page are escaped. The `lang` attribute and the time zone are validated.
+
+### Changed
+
+- Changed (breaking): Remote MySQL data sources (`mysql://` keys) are no longer supported, because they put database passwords in post content.
+- Changed: DataTables, its extensions, JSZip, and pdfmake are bundled in `assets/vendor/` instead of loaded from CDNs, and updated: DataTables 3.1.3, Buttons 4.1.2, Select 4.1.1, FixedHeader 5.1.2, FixedColumns 6.1.1, Responsive 4.1.1, JSZip 3.10.2, and pdfmake 0.3.11. This fixes known vulnerabilities in the old versions and stops sending visitors' IP addresses to CDNs.
+- Changed: Scripts and styles load only on pages that show the shortcode. A new setting, **Load table scripts on every page?**, restores the old behavior for tables written by hand. Block themes are supported.
+- Changed: Charts use the current Google Charts loader (`https://www.gstatic.com/charts/loader.js`) instead of the retired `jsapi` loader. `AnnotatedTimeLine`, which Google retired, draws an `Annotation` chart.
+- Changed: CSV files and queries on them are fetched and run directly in PHP, instead of through an HTTP request to the site itself. Queries on CSV files can refer to columns by letter (`A`, `B`, ...) as well as by header text, and number columns are detected so that comparisons such as `B > 6` work.
+- Changed: Error pages from data sources (HTTP status other than 2xx) are reported as errors instead of being shown and cached. A Google Sheet that isn't shared publicly shows an error instead of Google's sign-in page.
+- Changed: The Google Docs Viewer uses `https://docs.google.com/viewer`.
+- Changed: The default DataTables layout uses the `layout` option. Saved settings that use the older `dom` option keep working.
+- Changed: Requires WordPress 6.2 and PHP 7.4 or later. Tested with WordPress 6.2 and 7.1 and PHP 7.4 to 8.5.
+
+### Fixed
+
+- Fixed: The plugin crashed on PHP 8 (`get_magic_quotes_gpc()`, `error_log()` arguments), so charts and CSV tables did not work. Many PHP 8 warnings and deprecations are fixed.
+- Fixed: In the query engine, `order by` never worked inside the plugin's namespace, the tokenizer and date formatter misdetected the end of a string on PHP 8, and `gmstrftime()` (deprecated in PHP 8.1) is replaced.
+- Fixed: CSV lines longer than 4096 bytes were split into several rows.
+- Fixed: `chart_dimensions` turned on 3D whatever its value.
+- Fixed: `uninstall.php` now also removes the new post meta and removes the capability from every role.
+
+### Development
+
+- Added PHPUnit tests (`tests/phpunit/`), Playwright browser tests (`tests/e2e/`), PHPCS with the WordPress security rules and PHPCompatibility, a wp-env configuration, and a GitHub Actions workflow.
+- The bundled query engine in `lib/` (Apache-2.0, Mark Williams) is modified; each file lists its changes below its license header.
+
+### Earlier changes on 2026-10-03
 
 - Maintenance: Remove links to the plugin's former WordPress.org directory listing and support forum. The plugin URI now points to the GitHub repository, and the admin documentation links now point to `docs/reference.md` there. The help tab no longer refers to the support forum.
 - Documentation: Replace `readme.txt` (the WordPress.org readme) with `README.md`, `docs/user-guide.md`, `docs/faq.md`, `docs/reference.md`, and this changelog. Leave out the donation links, the original author's support statement, and the screenshot captions, whose images were hosted on WordPress.org. Edit the documentation for clarity.

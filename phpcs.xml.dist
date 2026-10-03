@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<ruleset name="inline-gdocs-viewer">
+    <description>Security and PHP compatibility checks. Run: composer lint</description>
+
+    <file>.</file>
+    <exclude-pattern>/vendor/*</exclude-pattern>
+    <exclude-pattern>/node_modules/*</exclude-pattern>
+    <exclude-pattern>/assets/vendor/*</exclude-pattern>
+    <exclude-pattern>/tests/*</exclude-pattern>
+    <arg name="extensions" value="php"/>
+    <arg value="sp"/>
+
+    <!-- PHP 7.4 and later. -->
+    <config name="testVersion" value="7.4-"/>
+    <rule ref="PHPCompatibilityWP"/>
+
+    <!-- Escaping, sanitizing, nonces, and safe database use. -->
+    <rule ref="WordPress.Security">
+        <!-- Exception messages are plain text. They are escaped where they
+             are printed (esc_html() in displayShortcode()) or JSON-encoded
+             (handleDatasourceRequest()). -->
+        <exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
+    </rule>
+    <rule ref="WordPress.DB.PreparedSQL"/>
+    <rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="inline-gdocs-viewer"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- The bundled query engine (Apache-2.0, upstream code) is checked for PHP compatibility only. -->
+    <rule ref="WordPress.Security">
+        <exclude-pattern>/lib/*</exclude-pattern>
+    </rule>
+    <rule ref="WordPress.WP.I18n">
+        <exclude-pattern>/lib/*</exclude-pattern>
+    </rule>
+</ruleset>

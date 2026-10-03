@@ -65,7 +65,6 @@ You can customize each table with shortcode attributes, or every table on your s
 
 You can graph data from Google Spreadsheets or CSV files as interactive charts. Add the `chart` attribute with one of these chart types:
 
-- [`AnnotatedTimeLine`](https://developers.google.com/chart/interactive/docs/gallery/annotatedtimeline)
 - [`Annotation`](https://developers.google.com/chart/interactive/docs/gallery/annotationchart)
 - [`Area`](https://developers.google.com/chart/interactive/docs/gallery/areachart)
 - [`Bar`](https://developers.google.com/chart/interactive/docs/gallery/areachart)
@@ -102,11 +101,13 @@ To filter or reshape a Google Spreadsheet or CSV file before it's displayed, pas
 [gdoc key="ABCDEFG" query="select A, B order by B desc limit 1"]
 ```
 
+In queries on CSV files, you can also refer to a column by its header text, such as `select Team where Goals %3E 6`.
+
 Queries also help when one spreadsheet holds complex data for several charts. Each chart can select just the part of the spreadsheet it needs.
 
-## MySQL databases
+## Your WordPress database
 
-Once an administrator turns on the SQL queries option in the plugin's settings screen, privileged users can query the WordPress database. Set `key` to `wordpress` and give a [MySQL `SELECT` statement](https://dev.mysql.com/doc/refman/5.5/en/select.html) in `query`. This can show data that other plugins or WordPress itself store in your site's database.
+Once an administrator turns on the SQL queries option in the plugin's settings screen, privileged users can query the WordPress database. Set `key` to `wordpress` and give a [MySQL `SELECT` statement](https://dev.mysql.com/doc/refman/8.0/en/select.html) in `query`. This can show data that other plugins or WordPress itself store in your site's database.
 
 For example, to list user registration dates from the current site:
 
@@ -114,15 +115,15 @@ For example, to list user registration dates from the current site:
 [gdoc key="wordpress" query="SELECT display_name AS Name, user_registered AS 'Registration Date' FROM wp_users"]
 ```
 
-You can also query a remote MySQL database by giving a MySQL connection URL with valid credentials. For example, this lists in-stock items and prices from the `inventory` database on `server.example.com`, logging in as `user` with the password `password`:
+A query runs only after a user with the `gdoc_query_sql_databases` capability (an Administrator, by default) saves the post that contains it. If another user adds or changes a query, it stops running until such a user saves the post again. Only single `SELECT` statements are accepted, and they run read-only. The [reference](reference.md#sql-queries) has the details.
 
-```text
-[gdoc key="mysql://user:password@server.example.com/inventory" query="SELECT sku AS 'Item No.', product_name AS Product, price AS Price WHERE in_stock=TRUE"]
-```
+Remote MySQL databases (`mysql://` keys) are no longer supported.
 
 ## Google Apps Script web apps
 
-You can also use the URL of any Google Apps Script web app. The app's output is inserted directly into your post or page, so you can display any data you like. The shortcode works the same way as for Google Spreadsheets.
+You can also use the URL of any Google Apps Script web app. The app's output is inserted into your post or page, so you can display any data you like. The shortcode works the same way as for Google Spreadsheets.
+
+If the post's author may not publish unfiltered HTML, the app's HTML is filtered like post content, so scripts and other unsafe HTML are removed. If the app returns CSV (with the `text/csv` content type), it's shown as a table.
 
 For example, say listeners of your podcast email their questions to a Gmail account, and you want to show some information about those emails on your website. Sort the emails with [Gmail filters](https://support.google.com/mail/answer/6579?hl=en) and [labels](https://support.google.com/mail/answer/118708?hl=en). Then write a [Google Apps Script](https://developers.google.com/apps-script/overview) that counts the messages under each label and returns the counts as an HTML list fragment. [Deploy that script as a web app](https://developers.google.com/apps-script/guides/web#deploying_a_script_as_a_web_app) and give its URL to the `gdoc` shortcode:
 

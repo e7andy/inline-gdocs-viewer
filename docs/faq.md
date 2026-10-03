@@ -84,16 +84,16 @@ If you can add JavaScript to your theme, you can do all of this and more with th
 For example, to turn off paging, add JavaScript like this to your theme:
 
 ```js
-jQuery(window).load(function () {
-    jQuery('#igsv-MY_TABLE_KEY').dataTable().api().page.len(-1).draw();
+jQuery(window).on('load', function () {
+    jQuery('#igsv-MY_TABLE_KEY').DataTable().page.len(-1).draw();
 });
 ```
 
 To sort the table by the second column in descending order:
 
 ```js
-jQuery(window).load(function () {
-    jQuery('#igsv-MY_TABLE_KEY').dataTable().api().order([1, 'desc']).draw();
+jQuery(window).on('load', function () {
+    jQuery('#igsv-MY_TABLE_KEY').DataTable().order([1, 'desc']).draw();
 });
 ```
 
@@ -148,3 +148,19 @@ add_filter('gdoc_enqueued_front_end_scripts', 'igsv_dequeue_google_charts_script
 ```
 
 The [reference](reference.md#registered-script-and-stylesheet-handles) lists every script and stylesheet handle the plugin registers.
+
+The scripts and stylesheets load only on pages that show the shortcode, unless you turn on **Load table scripts on every page?** in the plugin's settings.
+
+## Why does my CSV file on my own server or intranet show an error?
+
+To stop authors from using the plugin to reach services that aren't public, the plugin only fetches `http` and `https` addresses whose host resolves to a public IP address. Addresses such as `localhost`, `127.0.0.1`, `10.x.x.x`, `192.168.x.x`, and cloud metadata addresses are refused, and so are redirects to them.
+
+If you trust a private address, allow it with the `gdoc_url_allowed` filter. The [reference](reference.md#filters) has an example.
+
+## Why does my Apps Script web app's output look different?
+
+If the post's author may not publish unfiltered HTML (for example, Authors and Contributors, or everyone on a multisite network except Super Admins), the web app's HTML is filtered like post content: scripts, event handlers, and other unsafe HTML are removed. Publish the post as an Administrator or Editor to show the web app's HTML unchanged.
+
+## Why did my SQL query stop working?
+
+Since version 0.14.0, a SQL query runs only if the post was last saved by a user with the `gdoc_query_sql_databases` capability (Administrators, by default). If someone else added or changed the query, an Administrator needs to review the post and save it again. Remote MySQL databases (`mysql://` keys) are no longer supported. See [SQL queries](reference.md#sql-queries).

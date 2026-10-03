@@ -16,6 +16,14 @@ namespace WP_IGSV;
     limitations under the License. 
 
     File: visformat.php
+
+    Modified 2026-10-03 for the inline-gdocs-viewer fork
+    (https://github.com/e7andy/inline-gdocs-viewer):
+    - Replaced gmstrftime(), deprecated in PHP 8.1, with gmdate() (or
+      WordPress's wp_date() for localized month and day names).
+    - Invalid time zones fall back to UTC instead of throwing.
+    - End-of-string checks also stop at "", because PHP 8's substr()
+      returns "" instead of FALSE past the end of a string.
 ***********************************************************************/
 
 class NumberFormatter {
@@ -75,7 +83,7 @@ class NumberFormatter {
         $parts = array("","","","");
         $inquote = FALSE;
         $state = 0;
-        for ($start = 0; ($ch = substr($fmt,$start,1)) !== FALSE; $start++) {
+        for ($start = 0; ($ch = substr($fmt,$start,1)) !== FALSE && $ch !== ''; $start++) {
             switch ($state) {
             case '0':
             case '3':
@@ -135,7 +143,7 @@ class NumberFormatter {
 
         $rep = "";
         $commas = array();
-        for ($i = 0; ($ch = substr($parts[1],$i,1)) !== FALSE; $i++) {
+        for ($i = 0; ($ch = substr($parts[1],$i,1)) !== FALSE && $ch !== ''; $i++) {
             if ($ch == ',') {
                 $commas[] = $i;
             } else if ($ch == '.') {
@@ -338,7 +346,12 @@ class DateFormatter {
             $format = $matches[2];
         }
         $this->format = $format;
-        $this->timezone = new \DateTimeZone($tz);
+        try {
+            $this->timezone = new \DateTimeZone($tz);
+        } catch (\Exception $e) {
+            $tz = 'UTC';
+            $this->timezone = new \DateTimeZone($tz);
+        }
         $date = new \DateTime("", $this->timezone);
         $this->gmt_offset = $this->timezone->getOffset($date);
         $abbrev = timezone_abbreviations_list();
@@ -363,7 +376,7 @@ class DateFormatter {
         $cur_count = 0;
         $in_quote = 0;
         $format = $this->format;
-        for ($i = 0; ($ch = substr($format, $i, 1)) !== FALSE; $i++) {
+        for ($i = 0; ($ch = substr($format, $i, 1)) !== FALSE && $ch !== ''; $i++) {
             if ($ch == "'") {
                 if (substr($format, $i+1, 1) === "'") {
                     $prev = -1;
@@ -439,27 +452,27 @@ class DateFormatter {
             $pat = "%j";
             break;
         case 'F': //        day of week in month    (Number)            2 (2nd Wed in July)
-            $mday = intval(gmstrftime("%d", $date));
+            $mday = intval(gmdate("d", $date));
             $pat = (string)intval(($mday + 6) / 7);
             break;
         case 'w': //        week in year            (Number)            27
             $pat = "%V";
             break;
         case 'W': //        week in month           (Number)            2
-            $mday = intval(gmstrftime("%d", $date));
-            $wday = intval(gmstrftime("%w", $date));
+            $mday = intval(gmdate("d", $date));
+            $wday = intval(gmdate("w", $date));
             $pat = (string)intval(($mday - $wday) / 7);
             break;
         case 'a': //        am/pm marker            (Text)              PM
             $pat = "%p";
             break;
         case 'k': //        hour in day (1~24)      (Number)            24
-            $hour = intval(gmstrftime("%H", $date));
+            $hour = intval(gmdate("H", $date));
             if (!$hour) $hour = 24;
             $pat = (string)$hour;
             break;
         case 'K': //        hour in am/pm (0~11)    (Number)            0
-            $hour = intval(gmstrftime("%I", $date));
+            $hour = intval(gmdate("h", $date));
             if ($hour == 12) $hour = 0;
             $pat = (string)$hour;
             break;
@@ -478,14 +491,11 @@ class DateFormatter {
             break;
         }
         if (substr($pat,0,1) == "%") {
-            $lsave = setlocale(LC_ALL, "0");
-            setlocale(LC_ALL, $this->locale);
-            $pat = gmstrftime($pat, $date);
-            setlocale(LC_ALL, $lsave);
+            $pat = self::gmformat($pat, $date);
         }
         $len = strlen($pat);
         if ($len < $count) {
-            if (strpos("0123456789", substr($pat,0,1)) !== FALSE) {
+            if ($pat !== '' && strpos("0123456789", substr($pat,0,1)) !== FALSE) {
                 $pat = str_pad($pat, $count, "0", STR_PAD_LEFT);
             } else {
                 $pat = str_pad($pat, $count, " ");
@@ -494,7 +504,30 @@ class DateFormatter {
         return $pat;
     }
 
-
+    /**
+     * Formats a timestamp (already shifted to local time) like gmstrftime()
+     * did, for the conversions that convert() uses.
+     */
+    private static function gmformat($pat, $date)
+    {
+        $map = array(
+            '%y' => 'y', '%Y' => 'Y', '%m' => 'm', '%d' => 'd',
+            '%I' => 'h', '%H' => 'H', '%M' => 'i', '%S' => 's',
+            '%V' => 'W', '%p' => 'A',
+            '%B' => 'F', '%b' => 'M', '%A' => 'l', '%a' => 'D',
+        );
+        if ('%j' === $pat) {
+            return sprintf('%03d', intval(gmdate('z', $date)) + 1);
+        }
+        if (!isset($map[$pat])) {
+            return '';
+        }
+        $text = in_array($pat, array('%B', '%b', '%A', '%a'), true);
+        if ($text && function_exists('wp_date')) {
+            return wp_date($map[$pat], $date, new \DateTimeZone('UTC'));
+        }
+        return gmdate($map[$pat], $date);
+    }
 };
 
 class BoolFormatter {

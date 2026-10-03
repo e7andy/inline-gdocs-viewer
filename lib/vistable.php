@@ -16,10 +16,27 @@ namespace WP_IGSV;
     limitations under the License. 
 
     File: vistable.php
+
+    Modified 2026-10-03 for the inline-gdocs-viewer fork
+    (https://github.com/e7andy/inline-gdocs-viewer):
+    - Removed the call to get_magic_quotes_gpc(), which no longer exists
+      in PHP 8.
+    - Invalid time zones fall back to UTC instead of throwing.
+    - execute() can return output without sending HTTP headers
+      ($send_headers and get_content_type()).
+    - Error messages in HTML output are escaped.
+    - Added csv_vistable::setup_rows() to load already-parsed CSV rows.
+      Its columns can also be referred to by spreadsheet-style letters.
+    - Declared all properties (PHP 8.2 deprecates dynamic properties).
+    - execute() ignores PHP 8's warnings about reading undefined array
+      keys, which this code relies on being NULL.
+    - Loads visparser.php and visformat.php relative to this file.
+    - "order by" passes the namespaced name of vistable_order_function to
+      usort(), so ordering works inside the WP_IGSV namespace.
 ***********************************************************************/
 
-require "visparser.php";
-require "visformat.php";
+require_once __DIR__ . "/visparser.php";
+require_once __DIR__ . "/visformat.php";
 
 global $vistable_ordering;
 function vistable_order_function($a, $b)
@@ -53,6 +70,14 @@ abstract class vistable {
     private $aggregates;
     private $visited = 0;
     private $agr_reset = 0;
+    private $content_type = '';
+    protected $gmt_offset = 0;
+
+    /**
+     * Whether execute() sends HTTP headers. When false, the content type
+     * is only recorded and can be read with get_content_type().
+     */
+    public $send_headers = true;
     
     public function __construct($tqx,$tq,$tqrt,$tz,$locale,$extra=NULL) {
         $this->response = array('status' => 'ok');
@@ -78,9 +103,6 @@ abstract class vistable {
             }
         }
 
-        if (get_magic_quotes_gpc()) {
-            $tq = stripslashes($tq);
-        }
         
         $this->debug = $extra && $extra['debug'];
 
@@ -89,9 +111,29 @@ abstract class vistable {
         $this->tz = $tz;
         $this->locale = $locale;
 
-        $timezone = new \DateTimeZone($tz);
+        try {
+            $timezone = new \DateTimeZone($tz);
+        } catch (\Exception $e) {
+            $tz = 'UTC';
+            $timezone = new \DateTimeZone($tz);
+        }
         $date = new \DateTime("", $timezone);
         $this->gmt_offset = $timezone->getOffset($date);
+    }
+
+    private function send_header($header)
+    {
+        if (0 === stripos($header, 'Content-type:')) {
+            $this->content_type = trim(substr($header, strlen('Content-type:')));
+        }
+        if ($this->send_headers) {
+            header($header);
+        }
+    }
+
+    public function get_content_type()
+    {
+        return $this->content_type;
     }
 
     public function get_param($param,$default = NULL)
@@ -561,7 +603,7 @@ abstract class vistable {
         global $vistable_ordering;
         if ($pa) {
             $vistable_ordering = $porder;
-            usort($rout, "vistable_order_function");
+            usort($rout, __NAMESPACE__ . '\vistable_order_function');
 
             $pivots = array();
             foreach ($rout as $row) {
@@ -573,7 +615,7 @@ abstract class vistable {
 
         if ($order) {
             $vistable_ordering = $order;
-            usort($rout, "vistable_order_function");
+            usort($rout, __NAMESPACE__ . '\vistable_order_function');
         }
 
         if (count($cols) > $ncol) {
@@ -652,7 +694,30 @@ abstract class vistable {
         return $cols;
     }
 
+    /**
+     * Runs the query and returns the output.
+     *
+     * This code reads optional array keys without checking for them, as was
+     * common in PHP 5, and relies on missing keys being NULL. PHP 8 reports
+     * each of those reads as a warning, so they are ignored while the query
+     * runs. All other errors are passed on.
+     */
     public function execute()
+    {
+        $previous = set_error_handler(function ($errno, $errstr, $errfile = '', $errline = 0) use (&$previous) {
+            if (preg_match('/^(Undefined (array key|index|offset)|Trying to access array offset on (value of type )?null)/', $errstr)) {
+                return TRUE;
+            }
+            return $previous ? call_user_func($previous, $errno, $errstr, $errfile, $errline) : FALSE;
+        });
+        try {
+            return $this->execute_query();
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    private function execute_query()
     {
         $table = NULL;
 
@@ -670,7 +735,7 @@ abstract class vistable {
             $this->query = $parser->parse($this->tq);
 
             if ($this->debug) {
-                print "tq: $tq\n";
+                print "tq: {$this->tq}\n";
                 print_r($parser);
             }
 
@@ -793,7 +858,7 @@ abstract class vistable {
         $out = "";
         switch ($outfmt) {
         case 'json':
-            header('Content-type: text/plain; charset="UTF-8"');
+            $this->send_header('Content-type: text/plain; charset="UTF-8"');
 
             $out = json_encode($this->response);
             $out = preg_replace('/"(new Date\(.*?\))"/', "$1", $out);
@@ -802,10 +867,10 @@ abstract class vistable {
             break;
         case 'csv':
             if (isset($this->params['outFileName'])) {
-                header('Content-type: text/csv; charset="UTF-8"');
-                header('Content-disposition: attachment; filename='.$this->params['outFileName']);
+                $this->send_header('Content-type: text/csv; charset="UTF-8"');
+                $this->send_header('Content-disposition: attachment; filename='.$this->params['outFileName']);
             } else {
-                header('Content-type: text/plain; charset="UTF-8"');
+                $this->send_header('Content-type: text/plain; charset="UTF-8"');
             }
 
             if ($table) {
@@ -816,7 +881,7 @@ abstract class vistable {
             }
             break;
         case 'html':
-            header('Content-type: text/html; charset="UTF-8"');
+            $this->send_header('Content-type: text/html; charset="UTF-8"');
 
             $out = "<html><body><table border='1' cellpadding='2' cellspacing='0'>";
             if ($this->response['status'] != 'ok') {
@@ -841,10 +906,10 @@ abstract class vistable {
             break;
         case 'tsv-excel':
             if (isset($this->params['outFileName'])) {
-                header('Content-type: text/tab-separated-values; charset="UTF-16"');
-                header('Content-disposition: attachment; filename='.$this->params['outFileName']);
+                $this->send_header('Content-type: text/tab-separated-values; charset="UTF-16"');
+                $this->send_header('Content-disposition: attachment; filename='.$this->params['outFileName']);
             } else {
-                header('Content-type: text/plain; charset="UTF-16"');
+                $this->send_header('Content-type: text/plain; charset="UTF-16"');
             }
             if ($table) {
                 $out = self::tsv_row($table['cols'], "label");
@@ -854,7 +919,7 @@ abstract class vistable {
             }
             break;
         case 'jqgrid':
-            header('Content-type: text/json; charset="UTF-8"');
+            $this->send_header('Content-type: text/json; charset="UTF-8"');
             $out = array("records" => $this->total_rows);
             if ($this->num_rows > 0) {
                 $out['page'] = $this->page_num;
@@ -878,7 +943,7 @@ abstract class vistable {
             $out = json_encode($out);
             break;
         case 'jqgrid-xml':
-            header('Content-type: application/xml; charset="UTF-8"');
+            $this->send_header('Content-type: application/xml; charset="UTF-8"');
             $out = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>';
             $page = $this->num_rows > 0 ? $this->page_num : 0;
             $total = $this->num_rows > 0 ? $this->total_pages : 1;
@@ -899,7 +964,7 @@ abstract class vistable {
             break;
 
         case 'jqgrid-config':
-            header('Content-type: text/plain; charset="UTF-8"');
+            $this->send_header('Content-type: text/plain; charset="UTF-8"');
             $colmodel = array();
             foreach ($table['cols'] as $col) {
                 $c = array('label' => $col['label'],
@@ -929,7 +994,7 @@ abstract class vistable {
             break;
 
         case 'debug':
-            header('Content-type: text/plain; charset="UTF-8"');
+            $this->send_header('Content-type: text/plain; charset="UTF-8"');
             ob_start();
             var_dump($this->response);
             $out=ob_get_contents();
@@ -973,10 +1038,10 @@ abstract class vistable {
         $out = "";
         foreach ($diagnostics as $diag) {
             $out .= "<tr style='background-color: $color'>";
-            $out .= "<td>{$diag['reason']}</td>";
-            $msg = isset($diag['message']) ? $diag['message'] : "&nbsp;";
+            $out .= "<td>".htmlspecialchars($diag['reason'], ENT_QUOTES, "UTF-8")."</td>";
+            $msg = isset($diag['message']) ? htmlspecialchars($diag['message'], ENT_QUOTES, "UTF-8") : "&nbsp;";
             $out .= "<td>$msg</td>";
-            $msg = isset($diag['detailed_message']) ? $diag['detailed_message'] : "&nbsp;";
+            $msg = isset($diag['detailed_message']) ? htmlspecialchars($diag['detailed_message'], ENT_QUOTES, "UTF-8") : "&nbsp;";
             $out .= "<td>$msg</td>";
             $out .= "</tr>";
         }
@@ -1306,6 +1371,43 @@ class csv_vistable extends vistable {
         $cols = $row;
         $this->table = array();
         while (($row = $this->next_row($data)) !== FALSE) {
+            if (count($row) > count($cols)) continue;
+            $this->table[] = array_combine(array_slice($cols,0,count($row)), $row);
+        }
+    }
+
+    /**
+     * Loads rows that were already parsed from CSV. The first row holds the
+     * column names, optionally suffixed with " as <type>".
+     */
+    public function setup_rows(array $rows)
+    {
+        $this->fields = array();
+        $this->table = array();
+        $cols = array_shift($rows);
+        if (!$cols) return;
+        foreach ($cols as &$id) {
+            $id = (string)$id;
+            $type = 'string';
+            if (preg_match('/^(.*) as (date|datetime|boolean|timeofday|number)$/',$id,$matches)) {
+                $id = $matches[1];
+                $type = $matches[2];
+            }
+            $this->fields[$id] = array(TYPE=>SIMPLE, VALUE=>$id, 'type' => $type);
+        }
+        unset($id);
+        // Also accept spreadsheet-style column letters (A, B, ... AA) as
+        // aliases, unless a column already has that name.
+        foreach (array_values($cols) as $i => $id) {
+            $letter = '';
+            for ($n = $i + 1; $n > 0; $n = intdiv($n - 1, 26)) {
+                $letter = chr(65 + ($n - 1) % 26) . $letter;
+            }
+            if (!isset($this->fields[$letter])) {
+                $this->fields[$letter] = $this->fields[$id] + array('alias' => TRUE);
+            }
+        }
+        foreach ($rows as $row) {
             if (count($row) > count($cols)) continue;
             $this->table[] = array_combine(array_slice($cols,0,count($row)), $row);
         }

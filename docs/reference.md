@@ -6,15 +6,14 @@ The plugin has one shortcode, `gdoc`. It does different things depending on the 
 
 - `key`: the document to retrieve.
     - **Required.** Every `gdoc` shortcode must have exactly one `key` attribute. All other attributes are optional.
-    - `key` can be one of six types:
+    - `key` can be one of five types:
         - The full URL of a publicly shared Google Spreadsheet, like `[gdoc key="https://docs.google.com/spreadsheets/d/ABCDEFG/htmlview#gid=123456"]`
-        - The full URL of a Google Apps Script web app, like `[gdoc key="https://script.google.com/macros/s/ABCDEFG/exec"]`
-        - The full URL of a CSV file or of a web service that returns CSV data, like `[gdoc key="http://viewportsizes.com/devices.csv"]`
+        - The full URL of a Google Apps Script web app, like `[gdoc key="https://script.google.com/macros/s/ABCDEFG/exec"]`. HTML from the web app is filtered to safe post HTML (scripts removed) unless the post's author may publish unfiltered HTML, as Administrators and Editors can on a single site.
+        - The full URL of a CSV file or of a web service that returns CSV data, like `[gdoc key="http://viewportsizes.com/devices.csv"]`. Only public `http` and `https` addresses work; addresses on your own server or private network are refused (see the `gdoc_url_allowed` filter).
         - The full URL of a document on the web. PDF, DOC, XLS, and other formats that the [Google Docs Viewer](https://googlesystem.blogspot.com/2015/02/google-docs-viewer-page-no-longer.html) supports are shown in the viewer, like `[gdoc key="http://example.com/my_final_paper.pdf"]`
-        - The keyword `wordpress`, to run a SQL query on the current site's database, like `[gdoc key="wordpress" query="SELECT * FROM custom_table"]`
-        - A MySQL connection URL, to run a SQL query on any MySQL server, like `[gdoc key="mysql://user:password@server.example.com:12345/database" query="SELECT * FROM custom_table"]`
+        - The keyword `wordpress`, to run a SQL query on the current site's database, like `[gdoc key="wordpress" query="SELECT * FROM custom_table"]`. See [SQL queries](#sql-queries) for the rules.
+    - Remote MySQL connection URLs (`mysql://...`) are no longer supported, because they put database passwords in post content.
 - `chart`: shows the data as a chart instead of a table. Valid values:
-    - `AnnotatedTimeLine`
     - `Annotation`
     - `Area`
     - `Bar`
@@ -30,29 +29,47 @@ The plugin has one shortcode, `gdoc`. It does different things depending on the 
     - `Scatter`
     - `Stepped`
     - `Timeline`
+    - `AnnotatedTimeLine` is still accepted, but Google retired that chart, so an `Annotation` chart is drawn instead. Unknown values draw a `Column` chart.
 - `class`: a custom HTML `class` value, or a space-separated list of values. These class names have special meanings:
     - `no-datatables` turns off all DataTables features.
     - `no-responsive` turns off only DataTables' [Responsive](https://datatables.net/extensions/responsive/) features.
     - `FixedHeader`, or its synonym `FixedHeader-top`, keeps the table header (its `<thead>` content) at the top of the window while scrolling vertically.
     - `FixedHeader-footer` keeps the table footer (its `<tfoot>` content) at the bottom of the window while scrolling vertically.
-    - `FixedHeader-left` or `FixedHeader-right` keeps the leftmost or rightmost column in view while scrolling horizontally. You also need `datatables_scroll_x="true"` in your shortcode to allow horizontal scrolling.
-    - `FixedColumns-left-N` or `FixedColumns-right-N` keeps the leftmost or rightmost `N` columns in view. For example, `class="FixedColumns-left-3"` keeps the three leftmost columns in view.
+    - `FixedHeader-left` or `FixedHeader-right` keeps the leftmost or rightmost column in view while scrolling horizontally.
+    - `FixedColumns` keeps the leftmost column in view. `FixedColumns-left-N` or `FixedColumns-right-N` keeps the leftmost or rightmost `N` columns in view. For example, `class="FixedColumns-left-3"` keeps the three leftmost columns in view.
+    - Fixed columns turn on horizontal scrolling and turn off the Responsive extension for that table.
 - `csv_headers`: whether to include text headers in a Google Sheet's CSV export when you use `query` or `chart`. Use `1` to include them. (Default: `0`, which leaves them out, the same as Google's default.)
 - `expire_in`: how long to cache responses, in seconds. Set it to `0` to cache forever. (Default: `600`, which is 10 minutes.)
 - `footer_rows`: how many trailing rows go in the table's `<tfoot>` element. (Default: `0`.)
 - `header_cols`: how many cells at the start of each row are written as `<th>` elements. (Default: `0`.)
 - `header_rows`: how many leading rows go in the table's `<thead>` element. (Default: `1`.)
 - `height`: the height of the containing HTML element. Tables ignore this, so use `style` for them. (Default: calculated automatically.)
-- `http_opts`: a JSON string of options for the [WordPress HTTP API](https://codex.wordpress.org/HTTP_API), like `[gdoc key="ABCDEFG" http_opts='{"method": "POST", "blocking": false, "user-agent": "My Custom User Agent String"}']`.
-- `lang`: the [ISO 639](https://www.iso.org/iso-639-language-codes.html) language code for the language of the spreadsheet's content. For example, `nl-NL` declares that the content is in Dutch. (Default: your site's [language setting](https://codex.wordpress.org/WordPress_in_Your_Language).)
+- `http_opts`: a JSON string of options for the [WordPress HTTP API](https://developer.wordpress.org/apis/making-http-requests/), like `[gdoc key="ABCDEFG" http_opts='{"method": "POST", "user-agent": "My Custom User Agent String"}']`. Only these options are used, and any others are ignored:
+    - `method`: `GET`, `POST`, or `HEAD`.
+    - `timeout`: seconds, from 1 to 30.
+    - `redirection`: how many redirects to follow, from 0 to 5.
+    - `user-agent`: the `User-Agent` header.
+    - `headers`: an object of extra request headers.
+    - `body`: the request body, as a string or an object.
+- `lang`: the [ISO 639](https://www.iso.org/iso-639-language-codes.html) language code for the language of the spreadsheet's content. For example, `nl-NL` declares that the content is in Dutch. If the plugin ships a DataTables translation for that code (in `languages/`), the table's controls use it. An invalid code is replaced by the default. (Default: your site's [language setting](https://wordpress.org/documentation/article/wordpress-in-your-language/).)
 - `linkify`: whether to turn URLs, email addresses, and the like into clickable links. Set it to `no` to turn this off. (Default: `true`.)
-- `query`: a [Google Query Language](https://developers.google.com/chart/interactive/docs/querylanguage#Language_Syntax) query when the data source is a Google Spreadsheet or CSV file, or a SQL `SELECT` statement when it's a MySQL database. *Note:* write angle brackets (`<` and `>`) in queries URL-encoded, as `%3C` and `%3E`, so WordPress doesn't treat them as HTML. (Default: none.)
+- `query`: a [Google Query Language](https://developers.google.com/chart/interactive/docs/querylanguage#Language_Syntax) query when the data source is a Google Spreadsheet or CSV file, or a SQL `SELECT` statement when the key is `wordpress`. In queries on CSV files, refer to columns by letter (`A`, `B`, ...) or by their header text. *Note:* write angle brackets (`<` and `>`) in queries URL-encoded, as `%3C` and `%3E`, so WordPress doesn't treat them as HTML. (Default: none.)
 - `strip`: how many leading rows of the data source to leave out of the HTML table. (Default: `0`.)
 - `style`: an inline CSS rule for the containing HTML element. For example, to give a table a fixed height, use `[gdoc key="ABCDEFG" style="height: 480px;"]`. (Default: none.)
 - `summary`: a short description of the data for the [`summary` attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/table#attr-summary) of the `<table>`. HTML5 pages shouldn't use this. Use a table caption instead. (Default: none.)
 - `title`: a title for your chart or table. Browsers usually show it as a tooltip when you hover over the table, and charts show it as a heading. (Default: none.)
 - `use_cache`: whether to cache the spreadsheet data. Set it to `no` to turn off caching for this shortcode. (Default: `true`.)
 - `width`: the width of the containing HTML element. Tables ignore this, so use `style` for them. (Default: `100%`.)
+
+## SQL queries
+
+SQL queries with `key="wordpress"` run only when all of these are true:
+
+- An administrator turned on **Allow SQL queries in shortcodes?** in the plugin's settings.
+- The shortcode is in a post, and that post was last saved with this exact query by a user with the `gdoc_query_sql_databases` capability. Only Administrators have it by default. If anyone else adds or changes a SQL shortcode, it stops running until a user with the capability saves the post again.
+- The query is a single `SELECT` statement. Comments, `;`, `INTO OUTFILE`, `LOAD_FILE()`, `SLEEP()`, `BENCHMARK()`, locking clauses, and similar are refused.
+
+Queries run in a read-only transaction. SQL error messages are not shown on the page.
 
 ## Chart customization options
 
@@ -213,6 +230,8 @@ The bundled DataTables extensions also have their own attributes:
 
 - `datatables_buttons` customizes the [DataTables Buttons extension](https://datatables.net/extensions/buttons/).
 
+`datatables_ajax`, `datatables_data`, and `datatables_server_side` load data that DataTables shows as HTML, so they are used only when the post's author may publish unfiltered HTML. For other authors they are ignored.
+
 ## Plugin hooks
 
 These are the hooks the plugin provides. Developers of other plugins and themes can use them to change how this plugin works.
@@ -224,15 +243,26 @@ These are the hooks the plugin provides. Developers of other plugins and themes 
     - A related use is running [WordPress shortcodes](https://codex.wordpress.org/Shortcode) found in the data source. This can also cause problems, such as broken pages, because most shortcode functions don't expect to run inside an HTML `<table>`. Don't do it unless you're sure the shortcodes involved won't cause trouble.
     - This filter runs right after the HTML conversion and *before* the HTML goes through [`make_clickable()`](https://codex.wordpress.org/Function_Reference/make_clickable). The `linkify` attribute therefore still affects the final output whatever your filter does. Don't call `make_clickable()` yourself.
 - `gdoc_viewer_html`: like `gdoc_table_html`, but for the `<iframe>` that loads the [Google Docs Viewer](https://googlesystem.blogspot.com/2015/02/google-docs-viewer-page-no-longer.html). Use it, for example, to change the fallback content for browsers that don't support `<iframe>` elements.
-- `gdoc_webapp_html`: like `gdoc_table_html`, but for the HTTP response body from a [Google Apps Script web app](https://developers.google.com/apps-script/guides/web). Use it to modify a web app's output, much as you would [filter `the_content`](https://developer.wordpress.org/reference/hooks/the_content/) of a WordPress post. The first argument is the HTTP response body. The second is an array of all the attributes and values passed to this use of the shortcode.
+- `gdoc_webapp_html`: like `gdoc_table_html`, but for the HTTP response body from a [Google Apps Script web app](https://developers.google.com/apps-script/guides/web). Use it to modify a web app's output, much as you would [filter `the_content`](https://developer.wordpress.org/reference/hooks/the_content/) of a WordPress post. The first argument is the HTTP response body. The second is an array of all the attributes and values passed to this use of the shortcode. If the post's author may not publish unfiltered HTML, the body has already been filtered with `wp_kses_post()` when this filter runs.
 - `gdoc_query`: filters the query. The first argument is the value of the `query` attribute, or `false` if there's no query. The second is an array of all the attributes and values passed to this use of the shortcode.
     - This filter is often used to build a query from dynamic content, such as the current user's email address or username.
 - `gdoc_enqueued_front_end_styles`: an array of `$handle => array(...)` entries, each holding the parameters passed to [`wp_enqueue_style()`](https://developer.wordpress.org/reference/functions/wp_enqueue_style/). [`unset()`](https://www.php.net/unset) an entry to stop the plugin from loading that stylesheet. Remove stylesheets you know you won't need to make your site faster.
 - `gdoc_enqueued_front_end_scripts`: an array of `$handle => array(...)` entries, each holding the parameters passed to [`wp_enqueue_script()`](https://developer.wordpress.org/reference/functions/wp_enqueue_script/). [`unset()`](https://www.php.net/unset) an entry to stop the plugin from loading that script. Remove scripts you know you won't need to make your site faster.
+- `gdoc_url_allowed`: filters whether the plugin may fetch a data source URL. The first argument is `true` or `false`; the second is the URL. By default, only `http` and `https` URLs whose host resolves to public IP addresses are allowed, so that authors can't use the plugin to reach services on your server or private network. Return `true` to allow, for example, a CSV file on your intranet:
+
+    ```php
+    add_filter( 'gdoc_url_allowed', function ( $allowed, $url ) {
+        return 0 === strpos( $url, 'https://intranet.example.com/' ) ? true : $allowed;
+    }, 10, 2 );
+    ```
 
 ## Registered script and stylesheet handles
 
-The plugin always loads many scripts, so that it can also enhance tables written directly into a page instead of generated from a data source. To keep these off pages that don't need them, remove handles with the `gdoc_enqueued_front_end_*` filters. The registered handles are listed below.
+The plugin ships these libraries in `assets/vendor/` instead of loading them from third-party CDNs. Only the Google Charts loader (`google-ajax-api`) comes from Google, and only on pages with a chart.
+
+The scripts load only on pages that show the shortcode. To enhance tables you write by hand on other pages, turn on **Load table scripts on every page?** in the plugin's settings. To remove scripts or styles you don't need, unset their handles with the `gdoc_enqueued_front_end_*` filters. The registered handles are listed below.
+
+`datatables-buttons-colvis`, `datatables-buttons-html5`, and `datatables-buttons-print` are small compatibility files: DataTables Buttons 4 includes those features in `datatables-buttons`.
 
 **Scripts**
 

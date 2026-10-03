@@ -16,6 +16,13 @@ namespace WP_IGSV;
     limitations under the License. 
 
     File: visparser.php
+
+    Modified 2026-10-03 for the inline-gdocs-viewer fork
+    (https://github.com/e7andy/inline-gdocs-viewer):
+    - A query without a select clause skips alias fields (fields marked
+      'alias'), so that column-letter aliases are not selected twice.
+    - End-of-string checks also stop at "", because PHP 8's substr()
+      returns "" instead of FALSE past the end of a string.
 ***********************************************************************/
 
 define("TYPE", "vp-type");
@@ -84,11 +91,11 @@ class visparser {
 
         $q = $this->query;
         $start = 0;
-        while (($ch = substr($q,$start,1)) !== FALSE && ctype_space($ch)) {
+        while (($ch = substr($q,$start,1)) !== FALSE && $ch !== '' && ctype_space($ch)) {
             $start++;
         }
 
-        if ($ch === FALSE) {
+        if ($ch === FALSE || $ch === '') {
             $this->tok = array(TYPE => "eof");
             return FALSE;
         }
@@ -97,14 +104,14 @@ class visparser {
 
         $end = $start;
         if ($ch == '`') {
-            while (($ch = substr($q,++$end,1)) !== FALSE && $ch != '`')
+            while (($ch = substr($q,++$end,1)) !== FALSE && $ch !== '' && $ch != '`')
                 ;
 
             $ret = array(TYPE => ID, VALUE => substr($q, $start+1, $end - $start - 1));
             ++$end;
         } else if (ctype_digit($ch) || $ch == '.') {
             $ndot = $ch == '.' ? 1 : 0;
-            while (($ch = substr($q,++$end,1)) !== FALSE) {
+            while (($ch = substr($q,++$end,1)) !== FALSE && $ch !== '') {
                 if (!ctype_digit($ch)) {
                     if ($ndot || $ch != '.') {
                         break;
@@ -138,7 +145,7 @@ class visparser {
                 } else if ($ch == "'" || $ch == '"') {
                     $quote = $ch;
                     $ret = "";
-                    while (($ch = substr($q,$end++,1)) !== FALSE) {
+                    while (($ch = substr($q,$end++,1)) !== FALSE && $ch !== '') {
                         if ($ch == $quote) break;
                         if ($ch == "\\") {
                             $ch = substr($q,$end++,1);
@@ -151,7 +158,7 @@ class visparser {
                 }
             }
         } else if (ctype_alpha($ch) || $ch == '_') {
-            while (($ch = substr($q,++$end,1)) !== FALSE &&
+            while (($ch = substr($q,++$end,1)) !== FALSE && $ch !== '' &&
                    (ctype_alnum($ch) || $ch == '_'))
                 {
                 }
@@ -460,6 +467,7 @@ class visparser {
         if (!isset($this->result['select'])) {
             $this->result['select'] = array();
             foreach ($this->fields as $name => $value) {
+                if (!empty($value['alias'])) continue;
                 $this->result['select'][] = $value;
             }
         }

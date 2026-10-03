@@ -8,58 +8,74 @@
 (function () { // start immediately-invoked function expresion (IIFE)
 
 // DataTables
-jQuery(document).ready(function () {
+jQuery(function () {
+    var DataTable = window.DataTable || jQuery.fn.dataTable;
+    if (!DataTable || typeof igsv_plugin_vars === 'undefined') {
+        return;
+    }
+
     // Set/load defaults.
     if (igsv_plugin_vars.datatables_defaults_object) {
-        jQuery.extend(jQuery.fn.dataTable.defaults, igsv_plugin_vars.datatables_defaults_object);
-    } else {
-        igsv_plugin_vars.datatables_defaults_object = {};
+        jQuery.extend(true, DataTable.defaults, igsv_plugin_vars.datatables_defaults_object);
     }
+
+    var languages = igsv_plugin_vars.languages || [];
+
     // Initialize tables.
     jQuery(igsv_plugin_vars.datatables_classes).each(function () {
         var table = jQuery(this);
         var dt_opts = {};
-        if (jQuery.fn.dataTable.defaults.buttons) { // apply defaults for Buttons
-            dt_opts.buttons = jQuery.fn.dataTable.defaults.buttons
-        }
+        var x, i;
+
         if (false === table.hasClass('no-responsive')) {
             dt_opts.responsive = true;
         }
-        if (table.attr('lang')) {
-            dt_opts.language = {
-                'url': igsv_plugin_vars.lang_dir + '/datatables-' + table.attr('lang') + '.json'
-            }
-        }
-        table.DataTable(dt_opts);
 
-        var x;
-        if (table.is('.FixedHeader')) {
-            new jQuery.fn.dataTable.FixedHeader(table);
-        } else if (x = this.className.match(/FixedHeader-(top|right|footer|left)/g)) {
-            for (var i = 0; i < x.length; i++) {
-                var side = x[i].split('-')[1];
-                var fheader_opts = {};
-                fheader_opts[side] = true;
-            }
-            new jQuery.fn.dataTable.FixedHeader(table, fheader_opts);
-        } else if (table.is('.FixedColumns')) {
-            new jQuery.fn.dataTable.FixedColumns(table);
-        } else if (x = this.className.match(/FixedColumns-(left|right)-([0-9])*/g)) {
-            var l_n = 0;
-            var r_n = 0;
-            for (var i = 0; i < x.length; i++) {
+        // Only load translations that ship with the plugin.
+        var lang = table.attr('lang');
+        if (lang && -1 !== jQuery.inArray(lang, languages)) {
+            dt_opts.language = {
+                'url': igsv_plugin_vars.lang_dir + '/datatables-' + lang + '.json'
+            };
+        }
+
+        // FixedHeader: freeze the header and/or footer.
+        if (table.is('.FixedHeader') || table.is('.FixedHeader-top')) {
+            dt_opts.fixedHeader = { header: true, footer: table.is('.FixedHeader-footer') };
+        } else if (table.is('.FixedHeader-footer')) {
+            dt_opts.fixedHeader = { header: false, footer: true };
+        }
+
+        // FixedColumns: freeze columns at the start (left) or end (right).
+        var start = 0;
+        var end = 0;
+        if (table.is('.FixedHeader-left')) {
+            start = 1;
+        }
+        if (table.is('.FixedHeader-right')) {
+            end = 1;
+        }
+        if (table.is('.FixedColumns')) {
+            start = Math.max(start, 1);
+        }
+        if ((x = this.className.match(/FixedColumns-(left|right)-([0-9]+)/g))) {
+            for (i = 0; i < x.length; i++) {
                 var z = x[i].split('-');
                 if ('left' === z[1]) {
-                    l_n = z[2];
+                    start = parseInt(z[2], 10);
                 } else {
-                    r_n = z[2];
+                    end = parseInt(z[2], 10);
                 }
             }
-            new jQuery.fn.dataTable.FixedColumns(table, {
-                'leftColumns': l_n,
-                'rightColumns': r_n
-            });
         }
+        if (start || end) {
+            dt_opts.fixedColumns = { start: start, end: end };
+            // Fixed columns need horizontal scrolling instead of Responsive.
+            dt_opts.scrollX = true;
+            delete dt_opts.responsive;
+        }
+
+        new DataTable(this, dt_opts);
     });
 });
 

@@ -1,0 +1,6 @@
+/vendor/
+/node_modules/
+/test-results/
+/playwright-report/
+/tests/e2e/.posts.json
+.phpunit.result.cache
