@@ -2,7 +2,7 @@
 
 A WordPress plugin that embeds public Google Sheets, Google Apps Script web apps, CSV files, and SQL query results in posts and pages. Data is shown as a sortable, searchable HTML table or an interactive Google Chart. The plugin can also embed live previews of PDF, DOC, XLS, and other documents through the Google Docs Viewer.
 
-- **Version:** 0.14.0
+- **Version:** 1.0.0
 - **Requires:** WordPress 6.2 or later, PHP 7.4 or later (tested with WordPress 6.2 and 7.1, and PHP 7.4 to 8.5)
 - **License:** [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 
@@ -184,6 +184,35 @@ Run a single PHPUnit test with `npx wp-env run tests-cli --env-cwd=wp-content/pl
 The live tests (`tests/e2e/live-google.spec.js`) fetch a real public Google Sheet, so run them by hand before a release; they skip themselves when `IGSV_LIVE_SHEET` isn't set. They compare the plugin's tables, queries, and charts with what Google returns for the same request. The sheet needs headers in row 1, a text column A, a date-like text column C, and a number column I.
 
 The browser tests use a must-use plugin (`tests/e2e/mu-plugin.php`, mapped into the development site only) that serves fixture CSV files for `https://example.test/` URLs.
+
+## Releasing
+
+Releases are built and published by GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)). Each release has the installable zip, `inline-google-spreadsheet-viewer-X.Y.Z.zip`, its SHA-256 checksum, and the version's section of [CHANGELOG.md](CHANGELOG.md) as release notes. The zip contains one folder, `inline-google-spreadsheet-viewer/`, so it replaces an existing install of the plugin. Versions follow [semantic versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
+
+1. List the changes under `## Unreleased (fork)` in CHANGELOG.md as you make them.
+2. Set the new version everywhere and date the changelog section:
+
+    ```sh
+    bin/bump-version.sh 1.2.3
+    ```
+
+    If you changed any translatable strings, also regenerate the `.pot` file (see CLAUDE.md). Review the changes, commit them, and push to `master`.
+3. Release, in one of two ways:
+    - **Tag push:** `git tag v1.2.3 && git push origin v1.2.3`
+    - **Manually:** on GitHub, open **Actions > Release > Run workflow**, choose the branch, and enter `1.2.3`. You can also choose to create a draft or a pre-release. The `v1.2.3` tag is created when the release is published.
+
+The workflow then checks that the code states the version everywhere and that the changelog has notes for it, runs the full test workflow, builds the zip, checks its contents and PHP syntax, installs it in WordPress and renders a table, and only then publishes the release. If any step fails, nothing is published. Versions with a suffix, such as `1.2.3-beta.1`, are published as pre-releases.
+
+To build and check a zip on your own machine (with wp-env running for the smoke test):
+
+```sh
+bin/check-version.sh                        # every place states the same version
+zip=$(bin/build-zip.sh)                     # dist/inline-google-spreadsheet-viewer-X.Y.Z.zip from HEAD
+bin/verify-zip.sh "$zip"                    # required files and licenses present, no development files
+bin/smoke-test-zip.sh "$zip"                # installs the zip in wp-env and renders a table
+```
+
+`bin/build-zip.sh` packages committed files only. To include uncommitted changes, pass `$(git stash create)` as the commit. Files marked `export-ignore` in [.gitattributes](.gitattributes) (tests, development configuration, and `bin/`) are left out.
 
 ## License
 

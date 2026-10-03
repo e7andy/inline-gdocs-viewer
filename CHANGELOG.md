@@ -4,7 +4,9 @@
 
 Nothing yet.
 
-## 0.14.0 (fork) - 2026-10-03
+## 1.0.0 (fork) - 2026-10-03
+
+The first release of this fork. It continues from upstream 0.13.2; this version was briefly numbered 0.14.0 on `master` before release.
 
 Changes made on 2026-10-03 in the fork at <https://github.com/e7andy/inline-gdocs-viewer>, a modified version of <https://github.com/fabacab/inline-gdocs-viewer>. This release fixes security problems found in an audit of 0.13.2. Update as soon as possible.
 
@@ -44,6 +46,7 @@ Changes made on 2026-10-03 in the fork at <https://github.com/e7andy/inline-gdoc
 ### Development
 
 - Added PHPUnit tests (`tests/phpunit/`), Playwright browser tests (`tests/e2e/`), PHPCS with the WordPress security rules and PHPCompatibility, a wp-env configuration, and a GitHub Actions workflow.
+- Added a release workflow: pushing a `vX.Y.Z` tag, or running it manually from the Actions tab, tests the code, builds and checks the plugin zip, installs it in WordPress, and publishes a GitHub release. Release scripts are in `bin/`.
 - The bundled query engine in `lib/` (Apache-2.0, Mark Williams) is modified; each file lists its changes below its license header.
 
 ### Earlier changes on 2026-10-03

@@ -163,4 +163,4 @@ If the post's author may not publish unfiltered HTML (for example, Authors and C
 
 ## Why did my SQL query stop working?
 
-Since version 0.14.0, a SQL query runs only if the post was last saved by a user with the `gdoc_query_sql_databases` capability (Administrators, by default). If someone else added or changed the query, an Administrator needs to review the post and save it again. Remote MySQL databases (`mysql://` keys) are no longer supported. See [SQL queries](reference.md#sql-queries).
+Since version 1.0.0, a SQL query runs only if the post was last saved by a user with the `gdoc_query_sql_databases` capability (Administrators, by default). If someone else added or changed the query, an Administrator needs to review the post and save it again. Remote MySQL databases (`mysql://` keys) are no longer supported. See [SQL queries](reference.md#sql-queries).

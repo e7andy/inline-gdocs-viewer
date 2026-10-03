@@ -12,3 +12,7 @@
 /phpunit.xml.dist   export-ignore
 /playwright.config.js export-ignore
 /CLAUDE.md          export-ignore
+/bin                export-ignore
+
+# Shell scripts must keep Unix line endings to run in Git Bash and on Linux.
+*.sh text eol=lf

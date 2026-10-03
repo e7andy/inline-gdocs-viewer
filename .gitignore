@@ -4,3 +4,5 @@
 /playwright-report/
 /tests/e2e/.posts.json
 .phpunit.result.cache
+/dist/
+/.wp-env.override.json
