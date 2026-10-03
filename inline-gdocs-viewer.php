@@ -5,7 +5,7 @@
  * WordPress plugin header information:
  *
  * * Plugin Name: Inline Google Spreadsheet Viewer
- * * Plugin URI: https://wordpress.org/plugins/inline-google-spreadsheet-viewer/
+ * * Plugin URI: https://github.com/e7andy/inline-gdocs-viewer
  * * Description: Retrieves data from a public Google Spreadsheet or CSV file and displays it as an HTML table or interactive chart. <strong>Like this plugin? Please <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Inline%20Google%20Spreadsheet%20Viewer&amp;item_number=Inline%20Google%20Spreadsheet%20Viewer&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted" title="Send a donation to the developer of Inline Google Spreadsheet Viewer">donate</a>. &hearts; Thank you!</strong>
  * * Version: 0.13.2
  * * Text Domain: inline-gdocs-viewer
@@ -14,6 +14,10 @@
  * @link https://developer.wordpress.org/plugins/the-basics/header-requirements/
  *
  * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * Modified 2026-10-03 in the fork at https://github.com/e7andy/inline-gdocs-viewer
+ * (original: https://github.com/fabacab/inline-gdocs-viewer). See the change log
+ * in CHANGELOG.md for details.
  *
  * @package WordPress\Plugin\InlineGoogleSpreadsheetViewer
  */
@@ -1304,15 +1308,9 @@ class InlineGoogleSpreadsheetViewerPlugin {
         ) . '</p>';
         $html .= '<p>' . sprintf(
             esc_html__( 'Refer to the %1$sshortcode attribute documentation%3$s for a complete list of shortcode attributes, and the %2$sGoogle Chart API documentation%3$s for more information about each option.' ,'inline-gdocs-viewer' ),
-            '<a href="https://wordpress.org/plugins/inline-google-spreadsheet-viewer/other_notes/" target="_blank">',
+            '<a href="https://github.com/e7andy/inline-gdocs-viewer/blob/master/docs/reference.md" target="_blank">',
             '<a href="https://developers.google.com/chart/interactive/docs/gallery" target="_blank">', '</a>'
         ) . '</p>';
-        $html .= '<p>';
-        $html .= sprintf(
-            esc_html__( 'If you are having trouble getting your Spreadsheet to show up on your website, you can %sget help from the plugin support forum%s. Consider searching the support forum to see if your question has already been answered before posting a new thread.', 'inline-gdocs-viewer' ),
-            '<a href="https://wordpress.org/support/plugin/inline-google-spreadsheet-viewer/" target="_blank">', '</a>'
-        );
-        $html .= '</p>';
         ob_start();
         self::showDonationAppeal();
         $html .= ob_get_clean();
@@ -1421,7 +1419,7 @@ esc_html__( 'Inline Google Spreadsheet Viewer is provided as free software, but 
                     esc_html__('Define a DataTables defaults initialization object (in %1$sJSON%2$s syntax). This is useful if you wish to change the default DataTables enhancements for all affected tables on your site at once. All DataTables-enhanced tables will use the DataTables options configured here unless explicitly overriden in the shortcode, HTML, or JavaScript initialization for the given table, itself. To learn more, read the %3$sDataTables manual section on Setting defaults%2$s and refer to the %4$sdocumentation for shortcode attributes available via this plugin%2$s. Leave blank to use the plugin default.'),
                     '<a href="http://json.org/">', '</a>',
                     '<a href="https://datatables.net/manual/options#Setting-defaults">',
-                    '<a href="https://wordpress.org/plugins/inline-google-spreadsheet-viewer/other_notes/">'
+                    '<a href="https://github.com/e7andy/inline-gdocs-viewer/blob/master/docs/reference.md">'
                 );?></p>
             </td>
         </tr>

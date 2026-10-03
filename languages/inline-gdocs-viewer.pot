@@ -321,14 +321,6 @@ msgid ""
 "more information about each option."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1601
-msgid ""
-"If you are having trouble getting your Spreadsheet to show up on your "
-"website, you can %sget help from the plugin support forum%s. Consider "
-"searching the support forum to see if your question has already been "
-"answered before posting a new thread."
-msgstr ""
-
 #: inline-gdocs-viewer.php:1610
 msgid "Inserting a Google Spreadsheet"
 msgstr ""
@@ -410,7 +402,7 @@ msgid "User role(s) capable of using SQL queries:"
 msgstr ""
 
 #. Plugin URI of the plugin/theme
-msgid "https://wordpress.org/plugins/inline-google-spreadsheet-viewer/"
+msgid "https://github.com/e7andy/inline-gdocs-viewer"
 msgstr ""
 
 #. Description of the plugin/theme
