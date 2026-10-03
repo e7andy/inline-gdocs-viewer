@@ -1,0 +1,27 @@
+{
+    "name": "e7andy/inline-gdocs-viewer",
+    "description": "WordPress plugin that embeds Google Sheets, CSV files, and other data as tables or charts.",
+    "type": "wordpress-plugin",
+    "license": "GPL-3.0-only",
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "yoast/phpunit-polyfills": "^2.0 || ^3.0",
+        "wp-coding-standards/wpcs": "^3.1",
+        "phpcompatibility/phpcompatibility-wp": "^2.1"
+    },
+    "config": {
+        "platform": {
+            "php": "7.4.33"
+        },
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "scripts": {
+        "lint": "phpcs",
+        "test": "phpunit"
+    }
+}
