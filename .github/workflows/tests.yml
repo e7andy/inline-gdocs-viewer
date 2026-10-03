@@ -11,7 +11,7 @@ jobs:
     name: PHPCS (security and PHP compatibility)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -31,10 +31,10 @@ jobs:
           - php: '8.3'
             multisite: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '7.4'
@@ -52,10 +52,10 @@ jobs:
     name: PHPUnit (PHP 7.4)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '7.4'
@@ -81,10 +81,10 @@ jobs:
     name: Browser tests (Playwright)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '7.4'

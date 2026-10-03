@@ -42,7 +42,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Work out the version
@@ -83,10 +83,10 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '7.4'
@@ -102,7 +102,7 @@ jobs:
           find /tmp/lint -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
       - name: Install the zip in WordPress and smoke-test it
         run: KEEP_ENV=1 bin/smoke-test-zip.sh "${{ steps.zip.outputs.path }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: plugin-zip
           path: |
@@ -117,8 +117,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: plugin-zip
           path: dist
