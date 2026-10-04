@@ -25,6 +25,9 @@ module.exports = async () => {
     }
     if ( live.webapp ) {
         args.push( `webapp=${ live.webapp }` );
+        // Wake the web app up, so its first answer in the tests isn't a slow start.
+        await Promise.all( [ live.webapp, `${ live.webapp }?format=csv` ].map( ( u ) =>
+            fetch( u, { signal: AbortSignal.timeout( 60000 ) } ).catch( () => null ) ) );
     }
     if ( live.enabled ) {
         args.push( `files=${ live.files }` );

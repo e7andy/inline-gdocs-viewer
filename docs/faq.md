@@ -161,6 +161,16 @@ If you trust a private address, allow it with the `gdoc_url_allowed` filter. The
 
 If the post's author may not publish unfiltered HTML (for example, Authors and Contributors, or everyone on a multisite network except Super Admins), the web app's HTML is filtered like post content: scripts, event handlers, and other unsafe HTML are removed. Publish the post as an Administrator or Editor to show the web app's HTML unchanged.
 
+## Why does my Apps Script web app show "Operation timed out"?
+
+Apps Script web apps are sometimes slow to answer, especially when they haven't been used for a while. The plugin waits up to 15 seconds. To wait longer, up to 30 seconds, add `http_opts` to the shortcode:
+
+```text
+[gdoc key="https://script.google.com/macros/s/ABCDEFG/exec" http_opts='{"timeout":30}']
+```
+
+The answer is cached (10 minutes by default; see `expire_in`), so most page views don't wait at all.
+
 ## Why did my SQL query stop working?
 
 Since version 1.0.0, a SQL query runs only if the post was last saved by a user with the `gdoc_query_sql_databases` capability (Administrators, by default). If someone else added or changed the query, an Administrator needs to review the post and save it again. Remote MySQL databases (`mysql://` keys) are no longer supported. See [SQL queries](reference.md#sql-queries).

@@ -19,6 +19,10 @@ const path = require( 'path' );
 const { wp } = require( './wp' );
 const live = require( './live' );
 
+// Real outside services are sometimes briefly slow (Apps Script web apps can
+// take more than 15 seconds to answer), so retry before reporting a failure.
+test.describe.configure( { retries: 2 } );
+
 const ids = () => JSON.parse( fs.readFileSync( path.join( __dirname, '.posts.json' ), 'utf8' ) );
 const url = ( name ) => `/?p=${ ids()[ name ] }`;
 const cells = async ( page, column ) =>

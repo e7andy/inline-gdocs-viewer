@@ -55,9 +55,10 @@ if ( ! empty( $live['private'] ) && preg_match( '!^https://docs\.google\.com/spr
     $posts['live_private'] = '[gdoc key="' . $m[0] . '/edit" use_cache="no"]';
 }
 if ( ! empty( $live['webapp'] ) && preg_match( '!^https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec$!', $live['webapp'] ) ) {
-    $posts['live_webapp']                    = '[gdoc key="' . $live['webapp'] . '" use_cache="no"]';
+    // These use the normal cache (cleared below), so the web app is asked once per run.
+    $posts['live_webapp']                    = '[gdoc key="' . $live['webapp'] . '"]';
     $by_contributor['live_webapp_contributor'] = $posts['live_webapp'];
-    $posts['live_webapp_csv']                = '[gdoc key="' . $live['webapp'] . '?format=csv" use_cache="no"]';
+    $posts['live_webapp_csv']                = '[gdoc key="' . $live['webapp'] . '?format=csv"]';
     $posts['live_webapp_chart']              = '[gdoc key="' . $live['webapp'] . '" chart="Pie" title="Web app goals"]';
 }
 if ( ! empty( $live['files'] ) && preg_match( '!^https://[A-Za-z0-9.-]+/[A-Za-z0-9_./-]+$!', $live['files'] ) ) {
