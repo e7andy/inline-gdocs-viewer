@@ -2,7 +2,7 @@
 
 A WordPress plugin that embeds public Google Sheets, Google Apps Script web apps, CSV files, and SQL query results in posts and pages. Data is shown as a sortable, searchable HTML table or an interactive Google Chart. The plugin can also embed live previews of PDF, DOC, XLS, and other documents through the Google Docs Viewer.
 
-- **Version:** 1.0.0
+- **Version:** 1.0.1
 - **Requires:** WordPress 6.2 or later, PHP 7.4 or later (tested with WordPress 6.2 and 7.1, and PHP 7.4 to 8.5)
 - **License:** [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 
