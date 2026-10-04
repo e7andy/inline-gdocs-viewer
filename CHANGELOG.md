@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-Nothing yet.
+- Fixed: The plugin header said it requires WordPress 6.0, but it needs 6.2 (as the README says). WordPress now refuses to activate it on older versions instead of failing later.
+- Changed: Removed the original author's donation request from the plugin description, the editor's help tab, and the settings page. The original author is still credited in the README and the changelog.
 
 ## 1.1.0 - 2026-10-04
 

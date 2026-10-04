@@ -6,9 +6,9 @@
  *
  * * Plugin Name: Inline Google Spreadsheet Viewer
  * * Plugin URI: https://github.com/e7andy/inline-gdocs-viewer
- * * Description: Retrieves data from a public Google Spreadsheet or CSV file and displays it as an HTML table or interactive chart. <strong>Like this plugin? Please <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Inline%20Google%20Spreadsheet%20Viewer&amp;item_number=Inline%20Google%20Spreadsheet%20Viewer&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted" title="Send a donation to the developer of Inline Google Spreadsheet Viewer">donate</a>. &hearts; Thank you!</strong>
+ * * Description: Retrieves data from a public Google Spreadsheet or CSV file and displays it as an HTML table or interactive chart.
  * * Version: 1.1.0
- * * Requires at least: 6.0
+ * * Requires at least: 6.2
  * * Requires PHP: 7.4
  * * Text Domain: inline-gdocs-viewer
  * * Domain Path: /languages
@@ -2222,30 +2222,11 @@ class InlineGoogleSpreadsheetViewerPlugin {
             '<a href="https://github.com/e7andy/inline-gdocs-viewer/blob/master/docs/reference.md" target="_blank" rel="noopener noreferrer">',
             '<a href="https://developers.google.com/chart/interactive/docs/gallery" target="_blank" rel="noopener noreferrer">', '</a>'
         ) . '</p>';
-        ob_start();
-        self::showDonationAppeal();
-        $html .= ob_get_clean();
         $screen->add_help_tab( array(
             'id' => self::shortcode . '-' . $screen->base . '-help',
             'title' => __( 'Inserting a Google Spreadsheet', 'inline-gdocs-viewer' ),
             'content' => $html
         ));
-    }
-
-    /**
-     * Prints HTML asking for a donation for the plugin use.
-     */
-    private static function showDonationAppeal () {
-?>
-<div class="donation-appeal">
-    <p style="text-align: center; font-style: italic; margin: 1em 3em;"><?php print sprintf(
-/* translators: 1: link to make a donation, 2: link to the developer's page. */
-esc_html__( 'Inline Google Spreadsheet Viewer is provided as free software, but sadly grocery stores do not offer free food. If you like this plugin, please consider %1$s to its %2$s. &hearts; Thank you!', 'inline-gdocs-viewer' ),
-'<a target="_blank" rel="noopener noreferrer" href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Inline%20Google%20Spreadsheet%20Viewer%20WordPress%20Plugin&amp;item_number=inline-gdocs-viewer&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted">' . esc_html__( 'making a donation', 'inline-gdocs-viewer' ) . '</a>',
-'<a href="http://Cyberbusking.org/" target="_blank" rel="noopener noreferrer">' . esc_html__( 'houseless, jobless, nomadic developer', 'inline-gdocs-viewer' ) . '</a>'
-);?></p>
-</div>
-<?php
     }
 
     /**
@@ -2394,7 +2375,6 @@ esc_html__( 'Inline Google Spreadsheet Viewer is provided as free software, but 
 <?php submit_button(); ?>
 </form>
 <?php
-        self::showDonationAppeal();
     }
 }
 
