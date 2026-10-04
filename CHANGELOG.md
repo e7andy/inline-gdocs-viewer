@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.1.0 - 2026-10-04
+
 - Added: `cell_colors="yes"` shows a Google Sheet's cell background colors in the table. The colors come from the sheet's embed view; they work for Google Sheets without `query`, and a sheet whose colors can't be read is shown without them.
 - Fixed: A Google Sheet that isn't shared publicly now shows the "share it with Anyone with the link" message. Google answers such requests with HTTP 401 (or 403 or 404), which the plugin showed as a bare HTTP error.
 - Changed: Data source requests now wait up to 15 seconds instead of WordPress's default 5, because Apps Script web apps that are starting up often take longer. `http_opts` can still set a timeout from 1 to 30 seconds.
