@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.1.2 - 2026-10-04
+
 ### Security
 
 - Security: Authors who may not publish unfiltered HTML could inject scripts through the `datatables_columns`, `datatables_column_defs`, and `datatables_buttons` options, which DataTables renders as HTML. Such authors now get only DataTables options whose values are never rendered as HTML; `datatables_dom`, `datatables_language`, and `datatables_renderer` are restricted the same way.
