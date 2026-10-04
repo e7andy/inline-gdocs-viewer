@@ -3,7 +3,8 @@
 A WordPress plugin that embeds public Google Sheets, Google Apps Script web apps, CSV files, and SQL query results in posts and pages. Data is shown as a sortable, searchable HTML table or an interactive Google Chart. The plugin can also embed live previews of PDF, DOC, XLS, and other documents through the Google Docs Viewer.
 
 - **Version:** 1.0.1
-- **Requires:** WordPress 6.2 or later, PHP 7.4 or later (tested with WordPress 6.2 and 7.1, and PHP 7.4 to 8.5)
+- **Requires:** WordPress 6.2 or later, PHP 7.4 or later
+- **Tested up to:** WordPress 7.1.2, PHP 8.5 (the automated tests run on WordPress 6.2 and 7.1.2, and on PHP 7.4, 8.1, 8.3, 8.4, and 8.5)
 - **License:** [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 
 This repository is a fork of [fabacab/inline-gdocs-viewer](https://github.com/fabacab/inline-gdocs-viewer). This README is an overview. The full documentation is in [docs/](docs/):
@@ -15,9 +16,31 @@ This repository is a fork of [fabacab/inline-gdocs-viewer](https://github.com/fa
 
 ## Installation
 
-1. Copy this directory into `wp-content/plugins/` as `inline-google-spreadsheet-viewer`.
-2. Activate the plugin from the **Plugins** screen in WordPress.
-3. Add a `[gdoc key="..."]` shortcode to a post or page.
+The plugin is no longer in the WordPress.org plugin directory, so you install it from a zip file instead of searching for it in WordPress. You need WordPress 6.2 or later and PHP 7.4 or later.
+
+1. Download `inline-gdocs-viewer-X.Y.Z.zip` from the [latest release](https://github.com/e7andy/inline-gdocs-viewer/releases/latest), under **Assets**. Don't unzip it.
+2. In WordPress, go to **Plugins > Add New Plugin** and click **Upload Plugin** at the top.
+3. Choose the zip file and click **Install Now**.
+4. Click **Activate Plugin**.
+5. Add a `[gdoc key="..."]` shortcode to a post or page. See [Quick start](#quick-start).
+
+Use the release zip, not GitHub's green **Code > Download ZIP** button or the "Source code" archives on the release page. Those contain the development files and a different folder name, so WordPress would install them as a second, separate plugin.
+
+On a multisite network, upload the zip under **Network Admin > Plugins > Add New Plugin**, then network-activate it or activate it on individual sites.
+
+### Updating
+
+WordPress doesn't update the plugin automatically, because it isn't in the WordPress.org directory. To hear about new versions, open the [GitHub repository](https://github.com/e7andy/inline-gdocs-viewer), click **Watch > Custom**, and tick **Releases**.
+
+To update, download the new release zip and upload it the same way as above. WordPress sees that the plugin is already installed and shows a comparison of the two versions; click **Replace current with uploaded**. Your settings and shortcodes are kept.
+
+The same steps update a copy that was installed from WordPress.org (version 0.13.x or earlier). Read the [changelog](CHANGELOG.md) first: version 1.0.0 changed how SQL queries, remote MySQL sources, and Apps Script HTML work.
+
+### Other ways to install
+
+- **WP-CLI:** `wp plugin install https://github.com/e7andy/inline-gdocs-viewer/releases/download/vX.Y.Z/inline-gdocs-viewer-X.Y.Z.zip --activate` (replace `X.Y.Z` with the version). Add `--force` to update an existing install.
+- **FTP or file manager:** unzip the release zip and upload the `inline-google-spreadsheet-viewer` folder to `wp-content/plugins/`, replacing the old folder if there is one. Then activate the plugin on the **Plugins** screen.
+- **Checking the download:** each release also has a `.sha256` file. To check the zip, run `sha256sum -c inline-gdocs-viewer-X.Y.Z.zip.sha256` in the folder with both files (on Windows, compare the output of `certutil -hashfile inline-gdocs-viewer-X.Y.Z.zip SHA256` with the file's contents).
 
 ## Quick start
 
