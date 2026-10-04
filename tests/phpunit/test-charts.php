@@ -119,11 +119,19 @@ class Test_Charts extends IGSV_TestCase {
         $this->assertStringNotContainsString( '<img', $response['body'] );
     }
 
-    public function test_datasource_accepts_valid_custom_response_handler() {
+    public function test_datasource_accepts_google_response_handler() {
         $params = $this->chart_datasource_params( '[gdoc key="https://example.com/data.csv" chart="Bar"]' );
         $this->mock_http( 'https://example.com/data.csv', self::CSV );
-        $params['tqx'] = 'reqId:0;responseHandler:my.handler_1';
-        $this->assertStringStartsWith( 'my.handler_1(', Plugin::handleDatasourceRequest( $params )['body'] );
+        $params['tqx'] = 'reqId:0;responseHandler:google.visualization.Query.setResponse';
+        $this->assertStringStartsWith( 'google.visualization.Query.setResponse(', Plugin::handleDatasourceRequest( $params )['body'] );
+    }
+
+    public function test_datasource_rejects_non_google_response_handler() {
+        $params = $this->chart_datasource_params( '[gdoc key="https://example.com/data.csv" chart="Bar"]' );
+        $this->mock_http( 'https://example.com/data.csv', self::CSV );
+        // A handler outside google.visualization.* is ignored; the default is used.
+        $params['tqx'] = 'reqId:0;responseHandler:alert';
+        $this->assertStringStartsWith( 'google.visualization.Query.setResponse(', Plugin::handleDatasourceRequest( $params )['body'] );
     }
 
     public function test_datasource_types_numeric_columns() {

@@ -65,6 +65,51 @@ class Test_Author_Trust extends IGSV_TestCase {
         $this->assertSame( '15', $table->getAttribute( 'data-page-length' ) );
     }
 
+    /**
+     * DataTables renders these options as HTML, so an author who can't post
+     * unfiltered HTML must not be able to set them.
+     *
+     * @dataProvider provide_html_rendering_datatables_options
+     */
+    public function test_html_rendering_datatables_options_dropped_for_contributors( $attribute, $data_attr ) {
+        $this->mock_http( 'https://example.com/data.csv', self::CSV );
+        $post  = $this->make_post_by( 'contributor' );
+        $value = '%5B{"title":"%3Cimg src=x onerror=alert(1)%3E"}%5D';
+        $xp    = $this->xpath( $this->render( '[gdoc key="https://example.com/data.csv" ' . $attribute . "='" . $value . "']", $post ) );
+        $table = $xp->query( '//table' )->item( 0 );
+        $this->assertFalse( $table->hasAttribute( $data_attr ), "$data_attr should be dropped for a contributor." );
+    }
+
+    public function provide_html_rendering_datatables_options() {
+        return array(
+            'columns'     => array( 'datatables_columns', 'data-columns' ),
+            'column_defs' => array( 'datatables_column_defs', 'data-column-defs' ),
+            'buttons'     => array( 'datatables_buttons', 'data-buttons' ),
+            'dom'         => array( 'datatables_dom', 'data-dom' ),
+        );
+    }
+
+    public function test_html_rendering_datatables_options_kept_for_trusted_authors() {
+        if ( is_multisite() ) {
+            $this->markTestSkipped( 'Administrators lack unfiltered_html on multisite.' );
+        }
+        $this->mock_http( 'https://example.com/data.csv', self::CSV );
+        $post  = $this->make_post_by( 'administrator' );
+        $xp    = $this->xpath( $this->render( '[gdoc key="https://example.com/data.csv" datatables_buttons=\'%5B"copy"%5D\']', $post ) );
+        $table = $xp->query( '//table' )->item( 0 );
+        $this->assertSame( '["copy"]', $table->getAttribute( 'data-buttons' ) );
+    }
+
+    public function test_safe_datatables_options_kept_for_contributors() {
+        $this->mock_http( 'https://example.com/data.csv', self::CSV );
+        $post  = $this->make_post_by( 'contributor' );
+        $xp    = $this->xpath( $this->render( '[gdoc key="https://example.com/data.csv" datatables_paging="false" datatables_page_length="25" datatables_order=\'%5B%5B1,"desc"%5D%5D\']', $post ) );
+        $table = $xp->query( '//table' )->item( 0 );
+        $this->assertSame( 'false', $table->getAttribute( 'data-paging' ) );
+        $this->assertSame( '25', $table->getAttribute( 'data-page-length' ) );
+        $this->assertSame( '[[1,"desc"]]', $table->getAttribute( 'data-order' ) );
+    }
+
     public function test_datatables_data_options_kept_for_trusted_authors() {
         if ( is_multisite() ) {
             $this->markTestSkipped( 'Administrators lack unfiltered_html on multisite.' );

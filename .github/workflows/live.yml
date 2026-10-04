@@ -1,9 +1,10 @@
 name: Live tests
 
 # Runs the browser tests against real Google resources and files on GitHub
-# (tests/e2e/live-google.spec.js), weekly and on demand. The resources come
-# from repository variables (Settings > Secrets and variables > Actions >
-# Variables): IGSV_LIVE_SHEET, IGSV_LIVE_PRIVATE_SHEET, IGSV_LIVE_WEBAPP.
+# (tests/e2e/live-google.spec.js), weekly and on demand. The resource URLs
+# come from repository secrets (Settings > Secrets and variables > Actions >
+# Secrets): IGSV_LIVE_SHEET, IGSV_LIVE_PRIVATE_SHEET, IGSV_LIVE_WEBAPP. They
+# are secrets, not variables, so GitHub masks them in the run logs.
 # A failure usually means Google changed one of its services, or a resource
 # was changed or unshared; see "Live tests" in README.md.
 
@@ -20,9 +21,9 @@ jobs:
     name: Live tests (Google and GitHub)
     runs-on: ubuntu-latest
     env:
-      IGSV_LIVE_SHEET: ${{ vars.IGSV_LIVE_SHEET }}
-      IGSV_LIVE_PRIVATE_SHEET: ${{ vars.IGSV_LIVE_PRIVATE_SHEET }}
-      IGSV_LIVE_WEBAPP: ${{ vars.IGSV_LIVE_WEBAPP }}
+      IGSV_LIVE_SHEET: ${{ secrets.IGSV_LIVE_SHEET }}
+      IGSV_LIVE_PRIVATE_SHEET: ${{ secrets.IGSV_LIVE_PRIVATE_SHEET }}
+      IGSV_LIVE_WEBAPP: ${{ secrets.IGSV_LIVE_WEBAPP }}
       IGSV_LIVE_FILES: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/tests/e2e/fixtures
     steps:
       - uses: actions/checkout@v7

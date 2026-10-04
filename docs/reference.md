@@ -46,12 +46,12 @@ The plugin has one shortcode, `gdoc`. It does different things depending on the 
 - `header_rows`: how many leading rows go in the table's `<thead>` element. (Default: `1`.)
 - `height`: the height of the containing HTML element. Tables ignore this, so use `style` for them. (Default: calculated automatically.)
 - `http_opts`: a JSON string of options for the [WordPress HTTP API](https://developer.wordpress.org/apis/making-http-requests/), like `[gdoc key="ABCDEFG" http_opts='{"method": "POST", "user-agent": "My Custom User Agent String"}']`. Only these options are used, and any others are ignored:
-    - `method`: `GET`, `POST`, or `HEAD`.
+    - `method`: `GET` or `HEAD` for any author; also `POST` when the post's author may publish unfiltered HTML.
     - `timeout`: seconds, from 1 to 30.
     - `redirection`: how many redirects to follow, from 0 to 5.
     - `user-agent`: the `User-Agent` header.
-    - `headers`: an object of extra request headers.
-    - `body`: the request body, as a string or an object.
+    - `headers`: an object of extra request headers. Used only when the post's author may publish unfiltered HTML, and a `Host` header is never sent.
+    - `body`: the request body, as a string or an object. Used only when the post's author may publish unfiltered HTML.
 - `lang`: the [ISO 639](https://www.iso.org/iso-639-language-codes.html) language code for the language of the spreadsheet's content. For example, `nl-NL` declares that the content is in Dutch. If the plugin ships a DataTables translation for that code (in `languages/`), the table's controls use it. An invalid code is replaced by the default. (Default: your site's [language setting](https://wordpress.org/documentation/article/wordpress-in-your-language/).)
 - `linkify`: whether to turn URLs, email addresses, and the like into clickable links. Set it to `no` to turn this off. (Default: `true`.)
 - `link_target`: where links made by `linkify` open: `_blank` for a new tab, or `_self` for the same tab. Links that open in a new tab get `rel="noopener noreferrer"`. (Default: `_blank`.)
@@ -232,7 +232,7 @@ The bundled DataTables extensions also have their own attributes:
 
 - `datatables_buttons` customizes the [DataTables Buttons extension](https://datatables.net/extensions/buttons/).
 
-`datatables_ajax`, `datatables_data`, and `datatables_server_side` load data that DataTables shows as HTML, so they are used only when the post's author may publish unfiltered HTML. For other authors they are ignored.
+Some DataTables options load data or render HTML (column titles, button labels, and so on). These are `datatables_ajax`, `datatables_data`, `datatables_server_side`, `datatables_columns`, `datatables_column_defs`, `datatables_buttons`, `datatables_dom`, `datatables_language`, and `datatables_renderer`. They are used only when the post's author may publish unfiltered HTML (Administrators and Editors on a single site). For other authors they are ignored, so a table still works but uses the plugin's defaults for those options.
 
 ## Plugin hooks
 
@@ -257,6 +257,7 @@ These are the hooks the plugin provides. Developers of other plugins and themes 
         return 0 === strpos( $url, 'https://intranet.example.com/' ) ? true : $allowed;
     }, 10, 2 );
     ```
+- `gdoc_max_response_bytes`: filters the largest data source response the plugin will accept, in bytes (default 8&nbsp;MB). A larger response is refused, so a shortcode can't exhaust the server's memory or fill the cache with a huge file. Return `0` to remove the limit.
 
 ## Registered script and stylesheet handles
 

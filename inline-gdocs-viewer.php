@@ -76,6 +76,28 @@ class InlineGoogleSpreadsheetViewerPlugin {
     private static $dt_class = 'igsv-table';
 
     /**
+     * DataTables option suffixes (after `datatables_`) that an author who may
+     * not publish unfiltered HTML is allowed to set. These are options whose
+     * values DataTables never renders as HTML and that don't load data.
+     *
+     * Options left out on purpose: columns, column_defs, buttons (render
+     * titles/labels as HTML), ajax, data, server_side (load data), dom,
+     * renderer (build markup). Those work only for authors with
+     * `unfiltered_html`.
+     *
+     * @var string[]
+     */
+    private static $untrusted_datatables_options = array(
+        'auto_width', 'defer_render', 'info', 'length_change', 'ordering',
+        'paging', 'processing', 'scroll_x', 'scroll_y', 'searching',
+        'state_save', 'paging_type', 'display_start', 'order', 'order_fixed',
+        'order_multi', 'order_cells_top', 'order_classes', 'page_length',
+        'length_menu', 'scroll_collapse', 'search_delay', 'state_duration',
+        'tab_index', 'retrieve', 'destroy', 'defer_loading', 'j_query_UI',
+        'stripe_classes', 'search_cols', 'search',
+    );
+
+    /**
      * Number of invocations for each page load.
      *
      * @var int
@@ -720,7 +742,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
      * @throws \RuntimeException
      */
     private function fetchData ( $url, $x ) {
-        $http_args = self::sanitizeHttpOpts( $x['http_opts'] );
+        $http_args = self::sanitizeHttpOpts( $x['http_opts'], self::authorCanUseUnfilteredHtml() );
         $transient = self::getTransientName( array( $url, $http_args ) );
         $use_cache = ! ( false === $x['use_cache'] || 'no' === strtolower( (string) $x['use_cache'] ) );
         if ( $use_cache ) {
@@ -744,13 +766,17 @@ class InlineGoogleSpreadsheetViewerPlugin {
      * Only a few harmless options are allowed. Options such as `stream`,
      * `filename`, `sslverify`, or `reject_unsafe_urls` are ignored, because
      * they would let an author write files on the server or reach internal
-     * services.
+     * services. Options that let the server send a crafted request to other
+     * sites (POST, a request body, and custom headers) are allowed only for
+     * authors who may publish unfiltered HTML; the `Host` header is never
+     * allowed, so a request can't be aimed at a different virtual host.
      *
-     * @param string|false $opts A JSON string.
+     * @param string|false $opts    A JSON string.
+     * @param bool         $trusted Whether the author may publish unfiltered HTML.
      *
      * @return array
      */
-    private static function sanitizeHttpOpts ( $opts ) {
+    private static function sanitizeHttpOpts ( $opts, $trusted = false ) {
         $args = array();
         if ( ! $opts ) {
             return $args;
@@ -762,8 +788,9 @@ class InlineGoogleSpreadsheetViewerPlugin {
         foreach ( $decoded as $k => $v ) {
             switch ( $k ) {
                 case 'method':
-                    $method = strtoupper( (string) $v );
-                    if ( in_array( $method, array( 'GET', 'POST', 'HEAD' ), true ) ) {
+                    $allowed = $trusted ? array( 'GET', 'POST', 'HEAD' ) : array( 'GET', 'HEAD' );
+                    $method  = strtoupper( (string) $v );
+                    if ( in_array( $method, $allowed, true ) ) {
                         $args['method'] = $method;
                     }
                     break;
@@ -779,17 +806,20 @@ class InlineGoogleSpreadsheetViewerPlugin {
                     }
                     break;
                 case 'headers':
-                    if ( is_array( $v ) ) {
+                    if ( $trusted && is_array( $v ) ) {
                         $args['headers'] = array();
                         foreach ( $v as $name => $value ) {
-                            if ( is_string( $name ) && preg_match( '/^[A-Za-z0-9-]+$/', $name ) && is_scalar( $value ) ) {
+                            // Never allow Host: it would let a request be
+                            // aimed at a different virtual host on the target.
+                            if ( is_string( $name ) && preg_match( '/^[A-Za-z0-9-]+$/', $name )
+                                && 'host' !== strtolower( $name ) && is_scalar( $value ) ) {
                                 $args['headers'][ $name ] = str_replace( array( "\r", "\n" ), '', (string) $value );
                             }
                         }
                     }
                     break;
                 case 'body':
-                    if ( is_string( $v ) || is_array( $v ) ) {
+                    if ( $trusted && ( is_string( $v ) || is_array( $v ) ) ) {
                         $args['body'] = $v;
                     }
                     break;
@@ -819,15 +849,17 @@ class InlineGoogleSpreadsheetViewerPlugin {
         }
         $allowed = true;
         $host    = trim( strtolower( $p['host'] ), '[]' );
-        if ( 'localhost' === $host || '.localhost' === substr( $host, -10 ) ) {
+        if ( '' === $host || 'localhost' === $host || '.localhost' === substr( $host, -10 ) ) {
             $allowed = false;
         } else {
-            $ips = filter_var( $host, FILTER_VALIDATE_IP ) ? array( $host ) : (array) gethostbynamel( $host );
+            // Check every address the host resolves to, IPv4 and IPv6. An
+            // empty result (the host doesn't resolve) is also refused.
+            $ips = self::resolveHost( $host );
             if ( empty( $ips ) ) {
                 $allowed = false;
             }
             foreach ( $ips as $ip ) {
-                if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+                if ( ! self::isPublicIp( $ip ) ) {
                     $allowed = false;
                 }
             }
@@ -842,6 +874,108 @@ class InlineGoogleSpreadsheetViewerPlugin {
          * @param string $url
          */
         return (bool) apply_filters( self::shortcode . '_url_allowed', $allowed, $url );
+    }
+
+    /**
+     * Resolves a host to its IP addresses (IPv4 and IPv6), or returns the
+     * address itself if the host is already an IP literal.
+     *
+     * @param string $host
+     *
+     * @return string[]
+     */
+    private static function resolveHost ( $host ) {
+        if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
+            return array( $host );
+        }
+        $ips = array();
+        $records = function_exists( 'dns_get_record' ) ? @dns_get_record( $host, DNS_A | DNS_AAAA ) : false;
+        if ( is_array( $records ) ) {
+            foreach ( $records as $r ) {
+                if ( ! empty( $r['ip'] ) ) {
+                    $ips[] = $r['ip'];
+                }
+                if ( ! empty( $r['ipv6'] ) ) {
+                    $ips[] = $r['ipv6'];
+                }
+            }
+        }
+        // Fall back to the IPv4-only lookup if dns_get_record() found nothing
+        // (some hosts, such as Windows, don't return AAAA records reliably).
+        if ( empty( $ips ) ) {
+            $ips = (array) gethostbynamel( $host );
+            $ips = array_filter( $ips, 'is_string' );
+        }
+        return array_values( array_unique( $ips ) );
+    }
+
+    /**
+     * Whether an IP address is a public, routable address: not private, not
+     * reserved, and not one of the special-use ranges that can reach a
+     * server's own network or a cloud provider's metadata service.
+     *
+     * @param string $ip
+     *
+     * @return bool
+     */
+    private static function isPublicIp ( $ip ) {
+        // Map an IPv4-in-IPv6 address (::ffff:127.0.0.1) to its IPv4 form.
+        if ( preg_match( '/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m ) ) {
+            $ip = $m[1];
+        }
+        if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+            return false;
+        }
+        // PHP's own private/reserved filter catches the common ranges.
+        if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+            return false;
+        }
+        $packed = @inet_pton( $ip );
+        if ( false === $packed ) {
+            return false;
+        }
+        // Special-use ranges that FILTER_FLAG_NO_RES_RANGE misses, including
+        // the cloud metadata address (169.254.169.254) and carrier-grade NAT.
+        $blocked = array(
+            '0.0.0.0/8', '100.64.0.0/10', '169.254.0.0/16', '192.0.0.0/24',
+            '192.0.2.0/24', '192.88.99.0/24', '198.18.0.0/15', '198.51.100.0/24',
+            '203.0.113.0/24', '240.0.0.0/4',
+            '::/128', '::1/128', '::ffff:0:0/96', '64:ff9b::/96',
+            '100::/64', '2001:db8::/32', 'fc00::/7', 'fe80::/10',
+        );
+        foreach ( $blocked as $range ) {
+            if ( self::ipInRange( $packed, $range ) ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Whether a packed IP address is inside a CIDR range.
+     *
+     * @param string $packed A packed in_addr (from inet_pton()).
+     * @param string $range  A CIDR range, such as `169.254.0.0/16`.
+     *
+     * @return bool
+     */
+    private static function ipInRange ( $packed, $range ) {
+        list( $subnet, $bits ) = explode( '/', $range );
+        $subnet = @inet_pton( $subnet );
+        if ( false === $subnet || strlen( $subnet ) !== strlen( $packed ) ) {
+            return false; // Different address family.
+        }
+        $bits  = (int) $bits;
+        $bytes = intdiv( $bits, 8 );
+        if ( 0 !== strncmp( $packed, $subnet, $bytes ) ) {
+            return false;
+        }
+        $rem = $bits % 8;
+        if ( 0 === $rem ) {
+            return true;
+        }
+        $mask = ~( ( 1 << ( 8 - $rem ) ) - 1 ) & 0xFF;
+        return ( ord( $packed[ $bytes ] ) & $mask ) === ( ord( $subnet[ $bytes ] ) & $mask );
     }
 
     /**
@@ -902,8 +1036,25 @@ class InlineGoogleSpreadsheetViewerPlugin {
                 $code
             ), $code );
         }
+
+        /**
+         * Filters the largest data source response the plugin will accept, in
+         * bytes. Larger responses are refused, so a shortcode can't exhaust
+         * the server's memory or fill the cache with a huge file.
+         *
+         * @param int $max_bytes Default 8 MB.
+         */
+        $max_bytes      = (int) apply_filters( self::shortcode . '_max_response_bytes', 8 * MB_IN_BYTES );
+        $content_length = (int) wp_remote_retrieve_header( $resp, 'content-length' );
+        $body           = (string) wp_remote_retrieve_body( $resp );
+        if ( $max_bytes > 0 && ( $content_length > $max_bytes || strlen( $body ) > $max_bytes ) ) {
+            throw new \RuntimeException(
+                __( 'Error:', 'inline-gdocs-viewer' ) . ' '
+                . __( 'The data source is too large.', 'inline-gdocs-viewer' )
+            );
+        }
         return array(
-            'body'         => (string) wp_remote_retrieve_body( $resp ),
+            'body'         => $body,
             'content_type' => strtolower( trim( explode( ';', (string) wp_remote_retrieve_header( $resp, 'content-type' ) )[0] ) ),
             'code'         => $code,
         );
@@ -979,15 +1130,17 @@ class InlineGoogleSpreadsheetViewerPlugin {
      * @return string Attribute-value pairs in HTML.
      */
     private function dataTablesAttributes ( $atts ) {
-        // These options make DataTables load or render arbitrary data as HTML.
-        $untrusted_blocked = array( 'datatables_ajax', 'datatables_data', 'datatables_server_side' );
-        $trusted           = self::authorCanUseUnfilteredHtml();
-        $str               = '';
+        $trusted = self::authorCanUseUnfilteredHtml();
+        $str     = '';
         foreach ( $atts as $k => $v ) {
             if ( 0 !== strpos( $k, 'datatables_' ) || false === $v ) {
                 continue;
             }
-            if ( ! $trusted && in_array( $k, $untrusted_blocked, true ) ) {
+            // DataTables renders some options as HTML (column titles, button
+            // labels, language strings) or loads arbitrary data (ajax, data).
+            // Authors who may not publish unfiltered HTML get only options
+            // whose values DataTables never renders as HTML.
+            if ( ! $trusted && ! in_array( substr( $k, strlen( 'datatables_' ) ), self::$untrusted_datatables_options, true ) ) {
                 continue;
             }
             $k = str_replace( 'datatables', 'data', str_replace( '_', '-', $k ) );
@@ -1405,7 +1558,11 @@ class InlineGoogleSpreadsheetViewerPlugin {
             }
             if ( 'reqId' === $kv[0] && preg_match( '/^\d{1,9}$/', $kv[1] ) ) {
                 $tqx['reqId'] = $kv[1];
-            } elseif ( 'responseHandler' === $kv[0] && preg_match( '/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/', $kv[1] ) ) {
+            } elseif ( 'responseHandler' === $kv[0] && preg_match( '/^google\.visualization\.[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/', $kv[1] ) ) {
+                // Only Google Charts' own callbacks. The response is JavaScript
+                // and this endpoint is consumed by Google Charts, so an
+                // arbitrary callback name is never a legitimate value and
+                // could otherwise call another global function.
                 $handler = $kv[1];
             }
         }
@@ -1437,6 +1594,11 @@ class InlineGoogleSpreadsheetViewerPlugin {
 
         try {
             $plugin   = new self();
+            // The upstream fetch is cached here, so a flood of requests doesn't
+            // re-fetch the source. The CSV is size-capped by doHttpRequest(),
+            // so parsing and running the query stays bounded. (Caching the
+            // final output can't help: Google Charts sends a changing reqId
+            // each request, so an output cache keyed on it would never hit.)
             $response = $plugin->fetchData( $def['k'], array(
                 'http_opts' => false,
                 'use_cache' => true,

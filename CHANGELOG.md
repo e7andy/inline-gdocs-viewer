@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-Nothing yet.
+### Security
+
+- Security: Authors who may not publish unfiltered HTML could inject scripts through the `datatables_columns`, `datatables_column_defs`, and `datatables_buttons` options, which DataTables renders as HTML. Such authors now get only DataTables options whose values are never rendered as HTML; `datatables_dom`, `datatables_language`, and `datatables_renderer` are restricted the same way.
+- Security: Strengthened the block on fetching internal addresses. The plugin now refuses more special-use ranges (including carrier-grade NAT and cloud metadata addresses that slipped through before), checks IPv6 addresses, and checks every address a host resolves to.
+- Security: `http_opts` now allows `POST`, a request body, and custom request headers only when the post's author may publish unfiltered HTML, and never sends a `Host` header. Other authors keep `GET`/`HEAD`, `timeout`, `redirection`, and `user-agent`.
+- Security: Data source responses larger than 8&nbsp;MB are refused (filter `gdoc_max_response_bytes`), so a shortcode can't exhaust the server's memory or fill the cache.
+- Security: The chart data endpoint accepts only `google.visualization.*` callback names, not any function name.
+- Development: The live-test resource URLs are stored as repository secrets instead of variables, so GitHub masks them in logs. The test workflow runs with read-only permissions.
 
 ## 1.1.1 - 2026-10-04
 

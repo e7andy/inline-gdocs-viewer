@@ -206,7 +206,7 @@ Run a single PHPUnit test with `npx wp-env run tests-cli --env-cwd=wp-content/pl
 
 ### Live tests
 
-The live tests (`tests/e2e/live-google.spec.js`) use real resources on Google and GitHub, so they need the internet. GitHub Actions runs them every Monday and when you start **Actions > Live tests > Run workflow** ([.github/workflows/live.yml](.github/workflows/live.yml)); run them yourself before a release. Each group of tests skips itself when its resource isn't configured. The resources are set in environment variables, and in GitHub as repository variables (**Settings > Secrets and variables > Actions > Variables**):
+The live tests (`tests/e2e/live-google.spec.js`) use real resources on Google and GitHub, so they need the internet. GitHub Actions runs them every Monday and when you start **Actions > Live tests > Run workflow** ([.github/workflows/live.yml](.github/workflows/live.yml)); run them yourself before a release. Each group of tests skips itself when its resource isn't configured. The resources are set in environment variables, and in GitHub as repository secrets (**Settings > Secrets and variables > Actions > Secrets**), which GitHub masks in the run logs:
 
 | Variable | Resource | Contents |
 | --- | --- | --- |

@@ -9,14 +9,14 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-04T15:48:03+00:00\n"
+"POT-Creation-Date: 2026-10-04T19:10:44+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: inline-gdocs-viewer\n"
 
 #. Plugin Name of the plugin
 #: inline-gdocs-viewer.php
-#: inline-gdocs-viewer.php:209
+#: inline-gdocs-viewer.php:231
 msgid "Inline Google Spreadsheet Viewer"
 msgstr ""
 
@@ -30,166 +30,171 @@ msgstr ""
 msgid "Retrieves data from a public Google Spreadsheet or CSV file and displays it as an HTML table or interactive chart."
 msgstr ""
 
-#: inline-gdocs-viewer.php:208
-#: inline-gdocs-viewer.php:2290
+#: inline-gdocs-viewer.php:230
+#: inline-gdocs-viewer.php:2452
 msgid "Inline Google Spreadsheet Viewer Settings"
 msgstr ""
 
-#: inline-gdocs-viewer.php:860
+#: inline-gdocs-viewer.php:994
 msgid "Redirect to a disallowed address."
 msgstr ""
 
-#: inline-gdocs-viewer.php:881
-#: inline-gdocs-viewer.php:1818
-#: inline-gdocs-viewer.php:1836
-#: inline-gdocs-viewer.php:1842
-#: inline-gdocs-viewer.php:1850
-#: inline-gdocs-viewer.php:1858
-#: inline-gdocs-viewer.php:1864
-#: inline-gdocs-viewer.php:1885
-#: inline-gdocs-viewer.php:1891
+#: inline-gdocs-viewer.php:1015
+#: inline-gdocs-viewer.php:1052
+#: inline-gdocs-viewer.php:1980
+#: inline-gdocs-viewer.php:1998
+#: inline-gdocs-viewer.php:2004
+#: inline-gdocs-viewer.php:2012
+#: inline-gdocs-viewer.php:2020
+#: inline-gdocs-viewer.php:2026
+#: inline-gdocs-viewer.php:2047
 #: inline-gdocs-viewer.php:2053
+#: inline-gdocs-viewer.php:2215
 msgid "Error:"
 msgstr ""
 
-#: inline-gdocs-viewer.php:882
+#: inline-gdocs-viewer.php:1016
 msgid "This address cannot be used as a data source. Only public http and https addresses are allowed."
 msgstr ""
 
-#: inline-gdocs-viewer.php:895
+#: inline-gdocs-viewer.php:1029
 msgid "Error requesting data:"
 msgstr ""
 
 #. translators: %d: HTTP status code.
-#: inline-gdocs-viewer.php:901
+#: inline-gdocs-viewer.php:1035
 #, php-format
 msgid "Error requesting data: the data source returned HTTP status %d."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1819
+#: inline-gdocs-viewer.php:1053
+msgid "The data source is too large."
+msgstr ""
+
+#: inline-gdocs-viewer.php:1981
 msgid "Google did not return spreadsheet data. Check that the spreadsheet exists and is shared with \"Anyone with the link\"."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1837
+#: inline-gdocs-viewer.php:1999
 msgid "Remote MySQL databases are no longer supported. Use key=\"wordpress\" to query this site's database."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1843
+#: inline-gdocs-viewer.php:2005
 msgid "SQL datasources are disabled."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1851
+#: inline-gdocs-viewer.php:2013
 msgid "The author does not have permission to perform a SQL query."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1859
+#: inline-gdocs-viewer.php:2021
 msgid "Missing query."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1865
+#: inline-gdocs-viewer.php:2027
 msgid "Unsupported query:"
 msgstr ""
 
-#: inline-gdocs-viewer.php:1886
+#: inline-gdocs-viewer.php:2048
 msgid "The SQL query failed."
 msgstr ""
 
-#: inline-gdocs-viewer.php:1892
+#: inline-gdocs-viewer.php:2054
 msgid "Query produced zero results:"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2054
+#: inline-gdocs-viewer.php:2216
 msgid "The query is invalid or returned no data:"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2077
+#: inline-gdocs-viewer.php:2239
 msgid "Your Web browser must support inline frames to display this content:"
 msgstr ""
 
 #. translators: 1: post type, 2: opening <kbd> tag, 3: closing </kbd> tag, 4: opening <var> tag, 5: closing </var> tag.
-#: inline-gdocs-viewer.php:2204
+#: inline-gdocs-viewer.php:2366
 #, php-format
 msgid "You can insert a Google Spreadsheet in this %1$s. To do so, type %2$s[gdoc key=\"%4$sYOUR_SPREADSHEET_URL%5$s\"]%3$s wherever you would like the spreadsheet to appear. Remember to replace %4$sYOUR_SPREADSHEET_URL%5$s with the web address of your Google Spreadsheet."
 msgstr ""
 
-#: inline-gdocs-viewer.php:2211
+#: inline-gdocs-viewer.php:2373
 msgid "Only Google Spreadsheets that have been shared using either the \"Public on the web\" or \"anyone with the link\" options will be visible on this page."
 msgstr ""
 
 #. translators: 1: opening <kbd> tag, 2: closing </kbd> tag, 3: opening <var> tag, 4: closing </var> tag.
-#: inline-gdocs-viewer.php:2215
+#: inline-gdocs-viewer.php:2377
 #, php-format
 msgid "You can also transform your data into an interactive chart by using the %1$schart%2$s attribute. Supported chart types are Annotation, Area, Bar, Bubble, Candlestick, Column, Combo, Gauge, Geo, Histogram, Line, Pie, Scatter, Stepped, and Timeline. For instance, to make a Pie chart, type %1$s[gdoc key=\"%3$sYOUR_SPREADSHEET_URL%4$s\" chart=\"Pie\"]%2$s. Customize your chart with your own choice of colors by supplying a space-separated list of color values with the %1$schart_colors%2$s attribute, like %1$schart_colors=\"red green\"%2$s. Additional options depend on the chart you use."
 msgstr ""
 
 #. translators: 1: opening link tag to the shortcode documentation, 2: opening link tag to the Google Chart documentation, 3: closing link tag.
-#: inline-gdocs-viewer.php:2221
+#: inline-gdocs-viewer.php:2383
 #, php-format
 msgid "Refer to the %1$sshortcode attribute documentation%3$s for a complete list of shortcode attributes, and the %2$sGoogle Chart API documentation%3$s for more information about each option."
 msgstr ""
 
-#: inline-gdocs-viewer.php:2227
+#: inline-gdocs-viewer.php:2389
 msgid "Inserting a Google Spreadsheet"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2267
+#: inline-gdocs-viewer.php:2429
 msgid "The DataTables defaults object is not valid JSON, so it was not changed."
 msgstr ""
 
-#: inline-gdocs-viewer.php:2282
+#: inline-gdocs-viewer.php:2444
 msgid "You do not have sufficient permissions to access this page."
 msgstr ""
 
-#: inline-gdocs-viewer.php:2293
+#: inline-gdocs-viewer.php:2455
 msgid "DataTables defaults"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2298
+#: inline-gdocs-viewer.php:2460
 msgid "DataTables classes"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2304
+#: inline-gdocs-viewer.php:2466
 msgid "class-1 class-2"
 msgstr ""
 
 #. translators: 1: opening <code> tag, 2: closing </code> tag, 3: opening link tag to DataTables, 4: closing link tag.
-#: inline-gdocs-viewer.php:2309
+#: inline-gdocs-viewer.php:2471
 #, php-format
 msgid "A space-separated list of HTML %1$sclass%2$s values. %1$s<table>%2$s elements with these classes will automatically be enhanced with %3$sjQuery DataTables%4$s, unless the given table also has the special %1$sno-datatables%2$s class. Leave blank to use the plugin default."
 msgstr ""
 
-#: inline-gdocs-viewer.php:2318
+#: inline-gdocs-viewer.php:2480
 msgid "DataTables defaults object"
 msgstr ""
 
 #. translators: 1: opening link tag to json.org, 2: closing link tag, 3: opening link tag to the DataTables manual, 4: opening link tag to the plugin documentation.
-#: inline-gdocs-viewer.php:2329
+#: inline-gdocs-viewer.php:2491
 #, php-format
 msgid "Define a DataTables defaults initialization object (in %1$sJSON%2$s syntax). This is useful if you wish to change the default DataTables enhancements for all affected tables on your site at once. All DataTables-enhanced tables will use the DataTables options configured here unless explicitly overriden in the shortcode, HTML, or JavaScript initialization for the given table, itself. To learn more, read the %3$sDataTables manual section on Setting defaults%2$s and refer to the %4$sdocumentation for shortcode attributes available via this plugin%2$s. Leave blank to use the plugin default."
 msgstr ""
 
-#: inline-gdocs-viewer.php:2338
+#: inline-gdocs-viewer.php:2500
 msgid "Load table scripts on every page?"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2342
+#: inline-gdocs-viewer.php:2504
 msgid "By default, DataTables loads only on pages that show this plugin's shortcode. Turn this on if you write tables with the DataTables classes by hand, so they are enhanced on every page."
 msgstr ""
 
-#: inline-gdocs-viewer.php:2348
+#: inline-gdocs-viewer.php:2510
 msgid "Advanced options"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2353
+#: inline-gdocs-viewer.php:2515
 msgid "Allow SQL queries in shortcodes?"
 msgstr ""
 
 #. translators: 1: the shortcode name, 2: the capability name.
-#: inline-gdocs-viewer.php:2360
+#: inline-gdocs-viewer.php:2522
 #, php-format
 msgid "Enabling this option permits read-only SQL SELECT queries against this site's database to be inserted as part of a %1$s shortcode. This is useful but can also be easily abused, so it is disabled by default. Even once enabled, a query only runs if the post was last saved by a user with the %2$s capability. (Only Administrators have this capability by default.)"
 msgstr ""
 
-#: inline-gdocs-viewer.php:2364
+#: inline-gdocs-viewer.php:2526
 msgid "User role(s) capable of using SQL queries:"
 msgstr ""
