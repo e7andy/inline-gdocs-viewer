@@ -3,7 +3,7 @@
 # that it activates, reports the right version, renders a table, and serves
 # its bundled assets.
 #
-# Usage: bin/smoke-test-zip.sh dist/inline-google-spreadsheet-viewer-X.Y.Z.zip
+# Usage: bin/smoke-test-zip.sh dist/inline-gdocs-viewer-X.Y.Z.zip
 #
 # Uses .wp-env.override.json to load the unzipped plugin instead of this
 # checkout, and removes it again afterwards. The table comes from the
@@ -14,8 +14,7 @@ export MSYS_NO_PATHCONV=1
 
 zip="${1:?Usage: bin/smoke-test-zip.sh ZIP}"
 slug=inline-google-spreadsheet-viewer
-version=$(basename "$zip" .zip)
-version="${version#"$slug"-}"
+version=$(unzip -p "$zip" "$slug/inline-gdocs-viewer.php" | sed -n 's/^ \* \* Version: *\([^ ]*\).*/\1/p' | head -1)
 dir="dist/smoke"
 
 rm -rf "$dir"

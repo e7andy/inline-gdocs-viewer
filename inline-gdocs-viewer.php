@@ -1055,8 +1055,36 @@ class InlineGoogleSpreadsheetViewerPlugin {
         if ( false === $options['linkify'] || 'no' === strtolower( (string) $options['linkify'] ) ) {
             return $html;
         } else {
-            return make_clickable( $html );
+            return self::setLinkTargets( make_clickable( $html ), $options['link_target'] );
         }
+    }
+
+    /**
+     * Sets where links in the given HTML open.
+     *
+     * Links that already have a `target` are left alone. Links that open in a
+     * new tab get `rel="noopener noreferrer"`, so the opened page cannot
+     * control or see the page that opened it.
+     *
+     * @param string $html
+     * @param string $target `_blank` (new tab) or `_self` (same tab).
+     *
+     * @return string
+     */
+    private static function setLinkTargets ( $html, $target ) {
+        $target = ( '_self' === $target ) ? '_self' : '_blank';
+        $tags   = new \WP_HTML_Tag_Processor( $html );
+        while ( $tags->next_tag( 'a' ) ) {
+            if ( null !== $tags->get_attribute( 'target' ) ) {
+                continue;
+            }
+            $tags->set_attribute( 'target', $target );
+            if ( '_blank' === $target ) {
+                $rel = preg_split( '/\s+/', trim( (string) $tags->get_attribute( 'rel' ) ), -1, PREG_SPLIT_NO_EMPTY );
+                $tags->set_attribute( 'rel', implode( ' ', array_unique( array_merge( $rel, array( 'noopener', 'noreferrer' ) ) ) ) );
+            }
+        }
+        return $tags->get_updated_html();
     }
 
     /**
@@ -1272,6 +1300,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
             'expire_in' => 10*MINUTE_IN_SECONDS,// Custom time-to-live of cached transient data.
             'lang'     => get_bloginfo('language'),
             'linkify'  => true,                 // Whether to run make_clickable() on parsed data.
+            'link_target' => '_blank',          // Where links made by linkify open: _blank (new tab) or _self.
             'query'    => false,                // Google Visualization Query Language querystring
             'chart'    => false,                // Type of Chart (for an interactive chart)
 
@@ -1909,8 +1938,8 @@ class InlineGoogleSpreadsheetViewerPlugin {
         $html .= '<p>' . sprintf(
             /* translators: 1: opening link tag to the shortcode documentation, 2: opening link tag to the Google Chart documentation, 3: closing link tag. */
             esc_html__( 'Refer to the %1$sshortcode attribute documentation%3$s for a complete list of shortcode attributes, and the %2$sGoogle Chart API documentation%3$s for more information about each option.' ,'inline-gdocs-viewer' ),
-            '<a href="https://github.com/e7andy/inline-gdocs-viewer/blob/master/docs/reference.md" target="_blank">',
-            '<a href="https://developers.google.com/chart/interactive/docs/gallery" target="_blank">', '</a>'
+            '<a href="https://github.com/e7andy/inline-gdocs-viewer/blob/master/docs/reference.md" target="_blank" rel="noopener noreferrer">',
+            '<a href="https://developers.google.com/chart/interactive/docs/gallery" target="_blank" rel="noopener noreferrer">', '</a>'
         ) . '</p>';
         ob_start();
         self::showDonationAppeal();
@@ -1931,8 +1960,8 @@ class InlineGoogleSpreadsheetViewerPlugin {
     <p style="text-align: center; font-style: italic; margin: 1em 3em;"><?php print sprintf(
 /* translators: 1: link to make a donation, 2: link to the developer's page. */
 esc_html__( 'Inline Google Spreadsheet Viewer is provided as free software, but sadly grocery stores do not offer free food. If you like this plugin, please consider %1$s to its %2$s. &hearts; Thank you!', 'inline-gdocs-viewer' ),
-'<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Inline%20Google%20Spreadsheet%20Viewer%20WordPress%20Plugin&amp;item_number=inline-gdocs-viewer&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted">' . esc_html__( 'making a donation', 'inline-gdocs-viewer' ) . '</a>',
-'<a href="http://Cyberbusking.org/">' . esc_html__( 'houseless, jobless, nomadic developer', 'inline-gdocs-viewer' ) . '</a>'
+'<a target="_blank" rel="noopener noreferrer" href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Inline%20Google%20Spreadsheet%20Viewer%20WordPress%20Plugin&amp;item_number=inline-gdocs-viewer&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted">' . esc_html__( 'making a donation', 'inline-gdocs-viewer' ) . '</a>',
+'<a href="http://Cyberbusking.org/" target="_blank" rel="noopener noreferrer">' . esc_html__( 'houseless, jobless, nomadic developer', 'inline-gdocs-viewer' ) . '</a>'
 );?></p>
 </div>
 <?php
@@ -2017,7 +2046,7 @@ esc_html__( 'Inline Google Spreadsheet Viewer is provided as free software, but 
                         /* translators: 1: opening <code> tag, 2: closing </code> tag, 3: opening link tag to DataTables, 4: closing link tag. */
                         esc_html__('A space-separated list of HTML %1$sclass%2$s values. %1$s<table>%2$s elements with these classes will automatically be enhanced with %3$sjQuery DataTables%4$s, unless the given table also has the special %1$sno-datatables%2$s class. Leave blank to use the plugin default.', 'inline-gdocs-viewer'),
                         '<code>', '</code>',
-                        '<a href="https://datatables.net/">', '</a>'
+                        '<a href="https://datatables.net/" target="_blank" rel="noopener noreferrer">', '</a>'
                     );?>
                 </p>
             </td>
@@ -2036,9 +2065,9 @@ esc_html__( 'Inline Google Spreadsheet Viewer is provided as free software, but 
                 <p class="description"><?php print sprintf(
                     /* translators: 1: opening link tag to json.org, 2: closing link tag, 3: opening link tag to the DataTables manual, 4: opening link tag to the plugin documentation. */
                     esc_html__('Define a DataTables defaults initialization object (in %1$sJSON%2$s syntax). This is useful if you wish to change the default DataTables enhancements for all affected tables on your site at once. All DataTables-enhanced tables will use the DataTables options configured here unless explicitly overriden in the shortcode, HTML, or JavaScript initialization for the given table, itself. To learn more, read the %3$sDataTables manual section on Setting defaults%2$s and refer to the %4$sdocumentation for shortcode attributes available via this plugin%2$s. Leave blank to use the plugin default.', 'inline-gdocs-viewer'),
-                    '<a href="https://www.json.org/">', '</a>',
-                    '<a href="https://datatables.net/manual/options#Setting-defaults">',
-                    '<a href="https://github.com/e7andy/inline-gdocs-viewer/blob/master/docs/reference.md">'
+                    '<a href="https://www.json.org/" target="_blank" rel="noopener noreferrer">', '</a>',
+                    '<a href="https://datatables.net/manual/options#Setting-defaults" target="_blank" rel="noopener noreferrer">',
+                    '<a href="https://github.com/e7andy/inline-gdocs-viewer/blob/master/docs/reference.md" target="_blank" rel="noopener noreferrer">'
                 );?></p>
             </td>
         </tr>

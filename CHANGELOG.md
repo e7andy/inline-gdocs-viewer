@@ -2,7 +2,9 @@
 
 ## Unreleased (fork)
 
-Nothing yet.
+- Changed: Links that `linkify` makes from web addresses in tables now open in a new tab, with `rel="noopener noreferrer"`. The new `link_target` attribute (`_blank` or `_self`) chooses where they open. Links on the plugin's settings page also open in a new tab.
+- Development: The release zip is now named `inline-gdocs-viewer-X.Y.Z.zip`. The folder inside is still `inline-google-spreadsheet-viewer/`, so installing it upgrades existing installs.
+- Development: The zip under a release run's **Artifacts** is now the installable zip itself instead of a zip inside a zip. The Release workflow has a **build-only** option that tests and builds the zip without publishing a release.
 
 ## 1.0.0 (fork) - 2026-10-03
 

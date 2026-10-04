@@ -71,7 +71,7 @@ Tables are enhanced with [DataTables](https://datatables.net/), which adds sorti
 
 - `class="no-datatables"` turns off DataTables, and `class="no-responsive"` turns off only the Responsive extension.
 - `class="FixedHeader"` freezes the header row. `class="FixedColumns-left-3"` freezes the three leftmost columns.
-- `linkify="no"` stops URLs and email addresses from being turned into links.
+- `linkify="no"` stops URLs and email addresses from being turned into links. Links open in a new tab; use `link_target="_self"` to open them in the same tab.
 - `header_rows`, `footer_rows`, `header_cols`, and `strip` control the `<thead>`, the `<tfoot>`, `<th>` cells, and how many leading rows are skipped.
 
 To set any [DataTables option](https://datatables.net/reference/option/), use `datatables_` plus the option name in snake_case. For example, `pageLength` becomes `datatables_page_length`:
@@ -187,7 +187,7 @@ The browser tests use a must-use plugin (`tests/e2e/mu-plugin.php`, mapped into 
 
 ## Releasing
 
-Releases are built and published by GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)). Each release has the installable zip, `inline-google-spreadsheet-viewer-X.Y.Z.zip`, its SHA-256 checksum, and the version's section of [CHANGELOG.md](CHANGELOG.md) as release notes. The zip contains one folder, `inline-google-spreadsheet-viewer/`, so it replaces an existing install of the plugin. Versions follow [semantic versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
+Releases are built and published by GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)). Each release has the installable zip, `inline-gdocs-viewer-X.Y.Z.zip`, its SHA-256 checksum, and the version's section of [CHANGELOG.md](CHANGELOG.md) as release notes. The zip contains one folder, `inline-google-spreadsheet-viewer/` (the plugin's original folder name), so installing it upgrades an existing install of the plugin instead of adding a second copy. Versions follow [semantic versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
 1. List the changes under `## Unreleased (fork)` in CHANGELOG.md as you make them.
 2. Set the new version everywhere and date the changelog section:
@@ -200,14 +200,15 @@ Releases are built and published by GitHub Actions ([.github/workflows/release.y
 3. Release, in one of two ways:
     - **Tag push:** `git tag v1.2.3 && git push origin v1.2.3`
     - **Manually:** on GitHub, open **Actions > Release > Run workflow**, choose the branch, and enter `1.2.3`. You can also choose to create a draft or a pre-release. The `v1.2.3` tag is created when the release is published.
+    - **Build only:** run the Release workflow manually with **build-only** ticked. It tests and builds the zip without publishing anything; download the zip from the run's page under **Artifacts**.
 
-The workflow then checks that the code states the version everywhere and that the changelog has notes for it, runs the full test workflow, builds the zip, checks its contents and PHP syntax, installs it in WordPress and renders a table, and only then publishes the release. If any step fails, nothing is published. Versions with a suffix, such as `1.2.3-beta.1`, are published as pre-releases.
+The workflow then checks that the code states the version everywhere and that the changelog has notes for it, runs the full test workflow, builds the zip, checks its contents and PHP syntax, installs it in WordPress and renders a table, and only then publishes the release. If any step fails, nothing is published. Versions with a suffix, such as `1.2.3-beta.1`, are published as pre-releases. The zip on the release page and the one under the run's **Artifacts** are the same installable file; upload either one in WordPress under **Plugins > Add New > Upload Plugin**. (Use the release zip, not GitHub's automatic "Source code" archives, which contain the development files.)
 
 To build and check a zip on your own machine (with wp-env running for the smoke test):
 
 ```sh
 bin/check-version.sh                        # every place states the same version
-zip=$(bin/build-zip.sh)                     # dist/inline-google-spreadsheet-viewer-X.Y.Z.zip from HEAD
+zip=$(bin/build-zip.sh)                     # dist/inline-gdocs-viewer-X.Y.Z.zip from HEAD
 bin/verify-zip.sh "$zip"                    # required files and licenses present, no development files
 bin/smoke-test-zip.sh "$zip"                # installs the zip in wp-env and renders a table
 ```

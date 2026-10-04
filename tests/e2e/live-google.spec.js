@@ -105,7 +105,22 @@ test( 'live sheet: every row is shown, with text, line breaks and links intact',
     const link = rows.slice( 1 ).flat().find( ( c ) => /^https?:\/\/\S+$/.test( c.trim() ) );
     if ( link ) {
         await page.evaluate( ( id ) => jQuery( '#' + id ).DataTable().page.len( -1 ).draw(), table_id );
-        expect( await page.locator( `table.igsv-table a[href="${ link.trim() }"]` ).count() ).toBeGreaterThan( 0 );
+        const anchor = page.locator( `table.igsv-table a[href="${ link.trim() }"]` ).first();
+        await expect( anchor ).toHaveAttribute( 'target', '_blank' );
+        await expect( anchor ).toHaveAttribute( 'rel', /noopener/ );
+
+        // Clicking a link opens it in a new tab and leaves this page as it is.
+        // (Responsive may hide the column with the link above, so click any
+        // visible link.)
+        const visible = page.locator( 'table.igsv-table tbody a[target="_blank"]:visible' ).first();
+        if ( await visible.count() ) {
+            const before = page.url();
+            const popup = page.waitForEvent( 'popup' );
+            await visible.click();
+            const tab = await popup;
+            expect( page.url() ).toBe( before );
+            await tab.close();
+        }
     }
 } );
 

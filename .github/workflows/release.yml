@@ -5,7 +5,9 @@ name: Release
 # - Push a version tag:    git tag v1.2.3 && git push origin v1.2.3
 # - Release manually:      Actions > Release > Run workflow, then enter the
 #                          version. The tag is created on the chosen branch's
-#                          latest commit when the release is published.
+#                          latest commit when the release is published. Tick
+#                          "build-only" to test and build the zip without
+#                          publishing; the zip is then on the run's page.
 #
 # Either way, the version must already be set in the code (bin/bump-version.sh),
 # the tests must pass, and the built zip must install and work.
@@ -24,6 +26,10 @@ on:
         default: false
       prerelease:
         description: 'Mark the release as a pre-release'
+        type: boolean
+        default: false
+      build-only:
+        description: 'Only test and build the zip (download it from the run page); do not publish a release'
         type: boolean
         default: false
 
@@ -66,7 +72,7 @@ jobs:
       - name: Check that the changelog has notes for this version
         run: bin/changelog-notes.sh "${{ steps.version.outputs.version }}" > /dev/null
       - name: Check that a manual release doesn't reuse a tag
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && ! inputs.build-only
         run: |
           if git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.tag }}" > /dev/null; then
             echo "::error::Tag ${{ steps.version.outputs.tag }} already exists. Bump the version first (bin/bump-version.sh)."
@@ -93,7 +99,10 @@ jobs:
       - run: npm ci
       - name: Build the zip
         id: zip
-        run: echo "path=$(bin/build-zip.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          zip=$(bin/build-zip.sh)
+          echo "path=$zip" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$zip")" >> "$GITHUB_OUTPUT"
       - name: Check the zip's contents
         run: bin/verify-zip.sh "${{ steps.zip.outputs.path }}"
       - name: Check PHP syntax in the zip (PHP 7.4)
@@ -102,26 +111,48 @@ jobs:
           find /tmp/lint -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
       - name: Install the zip in WordPress and smoke-test it
         run: KEEP_ENV=1 bin/smoke-test-zip.sh "${{ steps.zip.outputs.path }}"
-      - uses: actions/upload-artifact@v7
+      # Upload the zip and its checksum as they are (archive: false), so the
+      # artifacts download as the installable zip itself, not a zip in a zip.
+      # Each artifact is named after its file.
+      - name: Upload the zip
+        uses: actions/upload-artifact@v7
         with:
-          name: plugin-zip
-          path: |
-            dist/*.zip
-            dist/*.zip.sha256
+          path: ${{ steps.zip.outputs.path }}
+          archive: false
           if-no-files-found: error
+      - name: Upload the checksum
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.zip.outputs.path }}.sha256
+          archive: false
+          if-no-files-found: error
+    outputs:
+      zip-name: ${{ steps.zip.outputs.name }}
 
   release:
     name: Publish GitHub release
     needs: [ prepare, tests, build ]
+    if: github.event_name == 'push' || ! inputs.build-only
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      # skip-decompress keeps the plugin zip as it is instead of unpacking it.
       - uses: actions/download-artifact@v8
         with:
-          name: plugin-zip
+          name: ${{ needs.build.outputs.zip-name }}
           path: dist
+          skip-decompress: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.zip-name }}.sha256
+          path: dist
+          skip-decompress: true
+      - name: Check the downloaded zip against its checksum
+        run: |
+          ls -la dist
+          cd dist && sha256sum -c "${{ needs.build.outputs.zip-name }}.sha256"
       - name: Write release notes from CHANGELOG.md
         run: bin/changelog-notes.sh "${{ needs.prepare.outputs.version }}" > release-notes.md
       - name: Create the release
@@ -131,8 +162,9 @@ jobs:
           TAG: ${{ needs.prepare.outputs.tag }}
           DRAFT: ${{ inputs.draft }}
           PRERELEASE: ${{ inputs.prerelease }}
+          ZIP: ${{ needs.build.outputs.zip-name }}
         run: |
-          args=( "$TAG" dist/*.zip dist/*.zip.sha256
+          args=( "$TAG" "dist/$ZIP" "dist/$ZIP.sha256"
                  --title "Inline Google Spreadsheet Viewer $VERSION"
                  --notes-file release-notes.md )
           prerelease=false

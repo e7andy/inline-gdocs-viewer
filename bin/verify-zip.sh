@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Checks the contents of a built plugin zip.
 #
-# Usage: bin/verify-zip.sh dist/inline-google-spreadsheet-viewer-X.Y.Z.zip
+# Usage: bin/verify-zip.sh dist/inline-gdocs-viewer-X.Y.Z.zip
 set -euo pipefail
 
 zip="${1:?Usage: bin/verify-zip.sh ZIP}"

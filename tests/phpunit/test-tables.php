@@ -79,8 +79,46 @@ class Test_Tables extends IGSV_TestCase {
 
     public function test_linkify() {
         $this->mock_http( 'https://example.com/links.csv', "Site\nhttps://wordpress.org\n" );
-        $this->assertStringContainsString( '<a href="https://wordpress.org"', $this->render( '[gdoc key="https://example.com/links.csv"]' ) );
-        $this->assertStringNotContainsString( '<a href=', do_shortcode( '[gdoc key="https://example.com/links.csv" linkify="no" use_cache="no"]' ) );
+        $xp = $this->xpath( $this->render( '[gdoc key="https://example.com/links.csv"]' ) );
+        $this->assertSame( 1, $xp->query( '//tbody//a[@href="https://wordpress.org"]' )->length );
+        $xp = $this->xpath( do_shortcode( '[gdoc key="https://example.com/links.csv" linkify="no" use_cache="no"]' ) );
+        $this->assertSame( 0, $xp->query( '//a' )->length );
+    }
+
+    public function test_links_open_in_a_new_tab_by_default() {
+        $this->mock_http( 'https://example.com/links.csv', "Site\nhttps://wordpress.org\n" );
+        $xp   = $this->xpath( $this->render( '[gdoc key="https://example.com/links.csv"]' ) );
+        $link = $xp->query( '//tbody//a' )->item( 0 );
+        $this->assertSame( 'https://wordpress.org', $link->getAttribute( 'href' ) );
+        $this->assertSame( '_blank', $link->getAttribute( 'target' ) );
+        $rel = explode( ' ', $link->getAttribute( 'rel' ) );
+        $this->assertContains( 'noopener', $rel );
+        $this->assertContains( 'noreferrer', $rel );
+        $this->assertContains( 'nofollow', $rel, 'make_clickable()\'s rel value is kept.' );
+    }
+
+    public function test_link_target_self() {
+        $this->mock_http( 'https://example.com/links.csv', "Site\nhttps://wordpress.org\n" );
+        $xp   = $this->xpath( $this->render( '[gdoc key="https://example.com/links.csv" link_target="_self"]' ) );
+        $link = $xp->query( '//tbody//a' )->item( 0 );
+        $this->assertSame( '_self', $link->getAttribute( 'target' ) );
+        $this->assertStringNotContainsString( 'noopener', $link->getAttribute( 'rel' ) );
+    }
+
+    public function test_link_target_rejects_other_values() {
+        $this->mock_http( 'https://example.com/links.csv', "Site\nhttps://wordpress.org\n" );
+        $html = $this->render( '[gdoc key="https://example.com/links.csv" link_target="javascript:alert(1)"]' );
+        $this->assertStringNotContainsString( 'javascript:', $html );
+        $this->assertSame( '_blank', $this->xpath( $html )->query( '//tbody//a' )->item( 0 )->getAttribute( 'target' ) );
+    }
+
+    public function test_links_from_the_table_filter_keep_their_target() {
+        $this->mock_http( 'https://example.com/links.csv', "Site\nhttps://wordpress.org\n" );
+        add_filter( 'gdoc_table_html', function ( $html ) {
+            return $html . '<a href="https://example.org/" target="_top">x</a>';
+        } );
+        $xp = $this->xpath( $this->render( '[gdoc key="https://example.com/links.csv"]' ) );
+        $this->assertSame( '_top', $xp->query( '//a[@href="https://example.org/"]' )->item( 0 )->getAttribute( 'target' ) );
     }
 
     public function test_long_csv_lines_are_not_split() {
