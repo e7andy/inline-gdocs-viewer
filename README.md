@@ -194,7 +194,7 @@ Releases are built and published by GitHub Actions ([.github/workflows/release.y
     - **patch** for fixes (1.0.0 → 1.0.1), **minor** for new features (1.0.0 → 1.1.0), or **major** for changes that break existing use (1.0.0 → 2.0.0);
     - or type an exact **version**, such as `1.2.0-beta.1`.
 
-    You can also choose to create a draft or a pre-release.
+    You can also choose to create a draft or a pre-release. To publish a draft, open it on the **Releases** page, click **Edit**, and then **Publish release**. Publishing creates the `vX.Y.Z` tag; the Release workflow notices that the release already exists and stops right away.
 
 The workflow raises the version for you: it sets the new version everywhere it appears and turns `## Unreleased` into a dated section for that version (with `bin/bump-version.sh`), and commits that as "Release X.Y.Z" on a temporary `release/vX.Y.Z` branch. It tests and builds that commit. Only when everything passes does it add the commit to `master`, tag it `vX.Y.Z`, and publish the release; the temporary branch is then deleted. If someone pushes to `master` while a release runs, the release stops instead of overwriting their work. Pull `master` afterwards to get the version commit.
 

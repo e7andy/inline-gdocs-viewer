@@ -60,11 +60,26 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       ref: ${{ steps.commit.outputs.ref }}
       release-branch: ${{ steps.commit.outputs.release-branch }}
+      skip: ${{ steps.existing.outputs.skip }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Publishing a draft release creates its tag, and that counts as a tag
+      # push. The release already exists then, so there is nothing to do.
+      - name: Skip tag pushes for releases that already exist
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::Release $GITHUB_REF_NAME already exists (published from a draft); nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Work out the version
+        if: steps.existing.outputs.skip != 'true'
         id: version
         env:
           BUMP: ${{ inputs.bump }}
@@ -89,13 +104,14 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
       - name: Check that a manual release doesn't reuse a tag
-        if: github.event_name == 'workflow_dispatch' && ! inputs.build-only
+        if: steps.existing.outputs.skip != 'true' && github.event_name == 'workflow_dispatch' && ! inputs.build-only
         run: |
           if git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.tag }}" > /dev/null; then
             echo "::error::Tag ${{ steps.version.outputs.tag }} already exists. Choose a higher version."
             exit 1
           fi
       - name: Commit the new version to a temporary release branch
+        if: steps.existing.outputs.skip != 'true'
         id: commit
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -122,6 +138,7 @@ jobs:
   tests:
     name: Tests
     needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
     uses: ./.github/workflows/tests.yml
     with:
       ref: ${{ needs.prepare.outputs.ref }}
@@ -129,6 +146,7 @@ jobs:
   build:
     name: Build and smoke-test the zip
     needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
     runs-on: ubuntu-latest
     outputs:
       zip-name: ${{ steps.zip.outputs.name }}
@@ -180,7 +198,7 @@ jobs:
   release:
     name: Publish GitHub release
     needs: [ prepare, tests, build ]
-    if: github.event_name == 'push' || ! inputs.build-only
+    if: needs.prepare.outputs.skip != 'true' && (github.event_name == 'push' || ! inputs.build-only)
     runs-on: ubuntu-latest
     permissions:
       contents: write

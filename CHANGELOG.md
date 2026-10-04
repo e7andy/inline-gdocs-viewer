@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Changed: CSV from addresses that don't end in `.csv`, such as a web service's export URL, is now shown as a table (and works with `query`) when the server sends a CSV content type. The plugin checks the content type with a cached `HEAD` request; other documents still open in the Google Docs Viewer and are not downloaded by your server.
+- Development: Publishing a draft release no longer starts a second Release run that fails: the workflow skips tag pushes for releases that already exist.
 - Development: Added tests for CSV without a `.csv` address, Google Sheets by bare ID and by tab (`gid`), sheets that aren't shared, Apps Script charts, and browser tests for Apps Script web apps (HTML and CSV) and SQL tables.
 
 ## 1.0.1 - 2026-10-04
