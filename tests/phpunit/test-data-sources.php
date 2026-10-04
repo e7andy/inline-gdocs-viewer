@@ -113,6 +113,30 @@ class Test_Data_Sources extends IGSV_TestCase {
         $this->assertStringNotContainsString( '<script', $html );
     }
 
+    /**
+     * Google answers 401 for sheets that aren't shared (seen live), and 403
+     * or 404 for sheets that are restricted or don't exist.
+     *
+     * @dataProvider provide_sheet_error_codes
+     */
+    public function test_sheet_error_status_shows_the_sharing_hint( $code ) {
+        $this->mock_http( 'https://docs.google.com/spreadsheets/d/PRIVATE/export?format=csv', '<html>Sign in</html>', 'text/html', $code );
+        $html = $this->render( '[gdoc key="https://docs.google.com/spreadsheets/d/PRIVATE/edit"]' );
+        $this->assertStringContainsString( 'Anyone with the link', $html );
+        $this->assertStringNotContainsString( 'Sign in', $html );
+    }
+
+    public function provide_sheet_error_codes() {
+        return array( '401' => array( 401 ), '403' => array( 403 ), '404' => array( 404 ) );
+    }
+
+    public function test_other_sources_keep_the_http_status_error() {
+        $this->mock_http( 'https://example.com/data.csv', 'Not found', 'text/plain', 404 );
+        $html = $this->render( '[gdoc key="https://example.com/data.csv"]' );
+        $this->assertStringContainsString( 'HTTP status 404', $html );
+        $this->assertStringNotContainsString( 'Anyone with the link', $html );
+    }
+
     public function test_sheet_by_bare_id_renders_a_table() {
         $this->mock_http( 'https://docs.google.com/spreadsheets/d/1AbC-dEf_123/export?format=csv', self::CSV );
         $xp = $this->xpath( $this->render( '[gdoc key="1AbC-dEf_123"]' ) );

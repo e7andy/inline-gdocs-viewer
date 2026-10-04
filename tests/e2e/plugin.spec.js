@@ -12,7 +12,9 @@ test.beforeEach( async ( { page }, testInfo ) => {
     testInfo.errors_seen = [];
     page.on( 'pageerror', ( err ) => testInfo.errors_seen.push( err.message ) );
     page.on( 'console', ( msg ) => {
-        if ( msg.type() === 'error' ) {
+        // Only the site's own page counts, not embedded third-party frames
+        // such as the Google Docs Viewer.
+        if ( msg.type() === 'error' && msg.page() === page && ( ! msg.location().url || msg.location().url.startsWith( new URL( page.url() ).origin ) ) ) {
             testInfo.errors_seen.push( msg.text() );
         }
     } );

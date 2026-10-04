@@ -1,74 +1,38 @@
-// Live tests against a real public Google Sheet. Run by hand before a release:
+// Live tests against real resources on Google and GitHub. They need the
+// internet, so they run by hand before a release and weekly in GitHub Actions
+// (.github/workflows/live.yml):
 //
-//   IGSV_LIVE_SHEET="https://docs.google.com/spreadsheets/d/<id>/edit" npm run test:e2e:live
+//   IGSV_LIVE_SHEET=... IGSV_LIVE_PRIVATE_SHEET=... IGSV_LIVE_WEBAPP=... npm run test:e2e:live
 //
-// The expected values are read from Google at test time, so the tests keep
-// working when the sheet's contents change. The sheet needs a text column A,
-// a date-like text column C, and a number column I, with headers in row 1.
+// Each group skips itself when its variable isn't set. The resources must
+// have the contents described in README.md ("Live tests"):
+//
+// - IGSV_LIVE_SHEET: public sheet. First tab: Team, Goals, Founded, Website
+//   with Aliens 5, Ninjas 12, Pirates 7, Robots 9, Älgar 3. A second tab with
+//   Name, Value / Second, 42.
+// - IGSV_LIVE_PRIVATE_SHEET: any sheet that is not shared.
+// - IGSV_LIVE_WEBAPP: the Apps Script web app from README.md.
+// - Files: tests/e2e/fixtures in this repo on GitHub (IGSV_LIVE_FILES to override).
 const { test, expect } = require( '@playwright/test' );
 const fs = require( 'fs' );
 const path = require( 'path' );
-
-const SHEET = ( process.env.IGSV_LIVE_SHEET || '' ).match( /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[\w-]+/ );
-test.skip( ! SHEET, 'Set IGSV_LIVE_SHEET to a public Google Sheet URL to run live tests.' );
+const { wp } = require( './wp' );
+const live = require( './live' );
 
 const ids = () => JSON.parse( fs.readFileSync( path.join( __dirname, '.posts.json' ), 'utf8' ) );
 const url = ( name ) => `/?p=${ ids()[ name ] }`;
-
-// Minimal RFC 4180 CSV parser (quoted fields, "" escapes, newlines in fields).
-function parseCsv( text ) {
-    const rows = [];
-    let row = [], field = '', quoted = false;
-    for ( let i = 0; i < text.length; i++ ) {
-        const c = text[ i ];
-        if ( quoted ) {
-            if ( c === '"' && text[ i + 1 ] === '"' ) {
-                field += '"';
-                i++;
-            } else if ( c === '"' ) {
-                quoted = false;
-            } else {
-                field += c;
-            }
-        } else if ( c === '"' ) {
-            quoted = true;
-        } else if ( c === ',' ) {
-            row.push( field );
-            field = '';
-        } else if ( c === '\n' || c === '\r' ) {
-            if ( c === '\r' && text[ i + 1 ] === '\n' ) {
-                i++;
-            }
-            row.push( field );
-            rows.push( row );
-            row = [];
-            field = '';
-        } else {
-            field += c;
-        }
-    }
-    if ( field !== '' || row.length ) {
-        row.push( field );
-        rows.push( row );
-    }
-    return rows;
-}
-
-// Asks Google directly, for comparison with what the plugin shows.
-async function fromGoogle( request, query ) {
-    const target = query
-        ? `${ SHEET[ 0 ] }/gviz/tq?tqx=out:csv&headers=1&tq=${ encodeURIComponent( query ) }`
-        : `${ SHEET[ 0 ] }/export?format=csv`;
-    const response = await request.get( target );
-    expect( response.ok() ).toBeTruthy();
-    return parseCsv( await response.text() );
-}
+const cells = async ( page, column ) =>
+    ( await page.locator( `table.igsv-table tbody tr td:nth-child(${ column })` ).allTextContents() ).map( ( t ) => t.trim() );
+const headers = async ( page ) =>
+    ( await page.locator( 'table.igsv-table thead th' ).allTextContents() ).map( ( t ) => t.trim() );
 
 test.beforeEach( async ( { page }, testInfo ) => {
     testInfo.errors_seen = [];
     page.on( 'pageerror', ( err ) => testInfo.errors_seen.push( err.message ) );
     page.on( 'console', ( msg ) => {
-        if ( msg.type() === 'error' ) {
+        // Only the site's own page counts, not embedded third-party frames
+        // such as the Google Docs Viewer.
+        if ( msg.type() === 'error' && msg.page() === page && ( ! msg.location().url || msg.location().url.startsWith( new URL( page.url() ).origin ) ) ) {
             testInfo.errors_seen.push( msg.text() );
         }
     } );
@@ -77,85 +41,139 @@ test.afterEach( async ( {}, testInfo ) => {
     expect( testInfo.errors_seen, 'JavaScript errors' ).toEqual( [] );
 } );
 
-test( 'live sheet: every row is shown, with text, line breaks and links intact', async ( { page, request } ) => {
-    const rows = await fromGoogle( request );
-    await page.goto( url( 'live_table' ) );
-    await expect( page.locator( '.dt-container' ) ).toBeVisible();
-    await expect( page.locator( '.igsv-error' ) ).toHaveCount( 0 );
+test.describe( 'live Google Sheet', () => {
+    test.skip( ! live.sheet, 'Set IGSV_LIVE_SHEET to run.' );
 
-    const table_id = await page.locator( 'table.igsv-table' ).getAttribute( 'id' );
-    const shown = await page.evaluate( ( id ) => jQuery( '#' + id ).DataTable().rows().count(), table_id );
-    expect( shown ).toBe( rows.length - 1 );
+    test( 'table shows every row, with text, dates, and links intact', async ( { page } ) => {
+        await page.goto( url( 'live_table' ) );
+        await expect( page.locator( '.dt-container' ) ).toBeVisible();
+        expect( await headers( page ) ).toEqual( [ 'Team', 'Goals', 'Founded', 'Website' ] );
 
-    const headers = await page.locator( 'table.igsv-table thead th' ).allTextContents();
-    expect( headers.map( ( h ) => h.trim() ) ).toEqual( rows[ 0 ].map( ( h ) => h.trim() ) );
+        const id = await page.locator( 'table.igsv-table' ).getAttribute( 'id' );
+        const rows = await page.evaluate( ( tid ) => jQuery( '#' + tid ).DataTable().rows( { order: 'index' } ).data().toArray()
+            .map( ( r ) => r.map( ( c ) => jQuery( '<div>' ).html( c ).text() ) ), id );
+        expect( rows ).toEqual( [
+            [ 'Aliens', '5', '2020-01-15', 'https://example.com/aliens' ],
+            [ 'Ninjas', '12', '2019-06-01', 'https://example.com/ninjas' ],
+            [ 'Pirates', '7', '2021-03-20', 'https://example.com/pirates' ],
+            [ 'Robots', '9', '2018-11-05', 'https://example.com/robots' ],
+            [ 'Älgar', '3', '2022-08-30', '' ],
+        ] );
 
-    // A cell with non-ASCII text, found through the search box.
-    const sample = rows.slice( 1 ).find( ( r ) => /[^\x00-\x7F]/.test( r[ 0 ] ) && ! r[ 0 ].includes( '\n' ) );
-    if ( sample ) {
-        await page.locator( '.dt-search input' ).fill( sample[ 0 ] );
-        await expect( page.locator( 'table.igsv-table tbody tr' ).first() ).toContainText( sample[ 0 ] );
+        await page.locator( '.dt-search input' ).fill( 'Älgar' );
+        await expect( page.locator( 'table.igsv-table tbody tr' ) ).toHaveCount( 1 );
         await page.locator( '.dt-search input' ).fill( '' );
-    }
 
-    // Multi-line cells keep their line breaks, and URLs become links.
-    if ( rows.some( ( r ) => r.some( ( c ) => c.includes( '\n' ) ) ) ) {
-        expect( await page.locator( 'table.igsv-table tbody td br' ).count() ).toBeGreaterThan( 0 );
-    }
-    const link = rows.slice( 1 ).flat().find( ( c ) => /^https?:\/\/\S+$/.test( c.trim() ) );
-    if ( link ) {
-        await page.evaluate( ( id ) => jQuery( '#' + id ).DataTable().page.len( -1 ).draw(), table_id );
-        const anchor = page.locator( `table.igsv-table a[href="${ link.trim() }"]` ).first();
-        await expect( anchor ).toHaveAttribute( 'target', '_blank' );
-        await expect( anchor ).toHaveAttribute( 'rel', /noopener/ );
+        const link = page.locator( 'table.igsv-table a[href="https://example.com/aliens"]' );
+        await expect( link ).toHaveAttribute( 'target', '_blank' );
+        await expect( link ).toHaveAttribute( 'rel', /noopener/ );
+    } );
 
-        // Clicking a link opens it in a new tab and leaves this page as it is.
-        // (Responsive may hide the column with the link above, so click any
-        // visible link.)
-        const visible = page.locator( 'table.igsv-table tbody a[target="_blank"]:visible' ).first();
-        if ( await visible.count() ) {
-            const before = page.url();
-            const popup = page.waitForEvent( 'popup' );
-            await visible.click();
-            const tab = await popup;
-            expect( page.url() ).toBe( before );
-            await tab.close();
-        }
-    }
+    test( 'a bare sheet ID works like the full URL', async ( { page } ) => {
+        await page.goto( url( 'live_bare' ) );
+        expect( await cells( page, 1 ) ).toEqual( [ 'Aliens', 'Ninjas', 'Pirates', 'Robots', 'Älgar' ] );
+    } );
+
+    test( 'the second tab is chosen by gid', async ( { page } ) => {
+        test.skip( ! ids().live_tab, 'Second tab (Name, Value) not found in the sheet.' );
+        await page.goto( url( 'live_tab' ) );
+        expect( await headers( page ) ).toEqual( [ 'Name', 'Value' ] );
+        expect( await cells( page, 1 ) ).toEqual( [ 'Second' ] );
+        expect( await cells( page, 2 ) ).toEqual( [ '42' ] );
+    } );
+
+    test( 'query filters and orders on Google\'s side', async ( { page } ) => {
+        await page.goto( url( 'live_query' ) );
+        expect( await headers( page ) ).toEqual( [ 'Team', 'Goals' ] );
+        expect( await cells( page, 1 ) ).toEqual( [ 'Ninjas', 'Robots', 'Pirates' ] );
+        expect( await cells( page, 2 ) ).toEqual( [ '12', '9', '7' ] );
+    } );
+
+    test( 'chart draws straight from Google', async ( { page } ) => {
+        const google = page.waitForRequest( ( r ) => r.url().startsWith( live.sheet + '/gviz/tq' ) );
+        await page.goto( url( 'live_chart' ) );
+        await google;
+        const chart = page.locator( '.igsv-chart' );
+        await expect( chart.locator( 'svg' ).first() ).toBeVisible( { timeout: 30000 } );
+        await expect( chart ).toContainText( 'Goals per team' );
+        await expect( chart ).toContainText( 'Ninjas' );
+    } );
 } );
 
-test( 'live sheet: query with csv_headers matches Google\'s own result', async ( { page, request } ) => {
-    const rows = await fromGoogle( request, "select A, C, I where C contains '2026'" );
-    await page.goto( url( 'live_query' ) );
-    await expect( page.locator( '.igsv-error' ) ).toHaveCount( 0 );
-    const headers = await page.locator( 'table.igsv-table thead th' ).allTextContents();
-    expect( headers.map( ( h ) => h.trim() ) ).toEqual( rows[ 0 ] );
+test.describe( 'live private Google Sheet', () => {
+    test.skip( ! live.privateSheet, 'Set IGSV_LIVE_PRIVATE_SHEET to run.' );
 
-    const table_id = await page.locator( 'table.igsv-table' ).getAttribute( 'id' );
-    const shown = await page.evaluate( ( id ) => {
-        const dt = jQuery( '#' + id ).DataTable();
-        return dt.rows( { order: 'index' } ).data().toArray().map( ( r ) => r.map( ( c ) => jQuery( '<div>' ).html( c ).text() ) );
-    }, table_id );
-    expect( shown ).toEqual( rows.slice( 1 ) );
+    test( 'a sheet that is not shared shows the sharing hint', async ( { page } ) => {
+        await page.goto( url( 'live_private' ) );
+        await expect( page.locator( '.igsv-error' ) ).toContainText( 'Anyone with the link' );
+        await expect( page.locator( 'table.igsv-table' ) ).toHaveCount( 0 );
+    } );
 } );
 
-test( 'live sheet: query without csv_headers still renders', async ( { page } ) => {
-    // Google guesses how many header rows there are. With multi-line cells in
-    // the first data row it can merge that row into the header; csv_headers="1"
-    // (previous test) avoids that. Either way the plugin must render a table.
-    await page.goto( url( 'live_guess' ) );
-    await expect( page.locator( '.igsv-error' ) ).toHaveCount( 0 );
-    await expect( page.locator( 'table.igsv-table thead th' ).first() ).toContainText( /\S/ );
+test.describe( 'live Apps Script web app', () => {
+    test.skip( ! live.webapp, 'Set IGSV_LIVE_WEBAPP to run.' );
+
+    test( 'HTML is shown as-is in an administrator\'s post', async ( { page } ) => {
+        await page.goto( url( 'live_webapp' ) );
+        const app = page.locator( '.igsv-live-webapp' );
+        await expect( app ).toBeVisible();
+        await expect( app.locator( 'strong' ) ).toHaveText( '33' );
+        expect( await page.evaluate( () => window.igsvLiveWebappScript === true ) ).toBe( true );
+    } );
+
+    test( 'HTML is filtered in a contributor\'s post', async ( { page } ) => {
+        await page.goto( url( 'live_webapp_contributor' ) );
+        const app = page.locator( '.igsv-live-webapp' );
+        await expect( app.locator( 'strong' ) ).toHaveText( '33' );
+        await expect( app.locator( 'script' ) ).toHaveCount( 0 );
+        expect( await page.evaluate( () => typeof window.igsvLiveWebappScript ) ).toBe( 'undefined' );
+    } );
+
+    test( 'CSV output becomes a table', async ( { page } ) => {
+        await page.goto( url( 'live_webapp_csv' ) );
+        await expect( page.locator( '.dt-container' ) ).toBeVisible();
+        expect( await headers( page ) ).toEqual( [ 'Team', 'Goals' ] );
+        await expect( page.locator( 'table.igsv-table tbody tr' ) ).toHaveCount( 4 );
+    } );
+
+    test( 'chart draws from the web app', async ( { page } ) => {
+        const app = page.waitForRequest( ( r ) => r.url().startsWith( live.webapp ) && r.url().includes( 'tqx=' ) );
+        await page.goto( url( 'live_webapp_chart' ) );
+        await app;
+        const chart = page.locator( '.igsv-chart' );
+        await expect( chart.locator( 'svg' ).first() ).toBeVisible( { timeout: 30000 } );
+        await expect( chart ).toContainText( 'Web app goals' );
+        await expect( chart ).toContainText( 'Ninjas' );
+    } );
 } );
 
-test( 'live sheet: chart draws straight from Google', async ( { page, request } ) => {
-    const rows = await fromGoogle( request, 'select A, I where I is not null order by I desc limit 8' );
-    const google_request = page.waitForRequest( ( r ) => r.url().startsWith( SHEET[ 0 ] + '/gviz/tq' ) );
-    await page.goto( url( 'live_chart' ) );
-    await google_request;
-    await expect( page.locator( '.igsv-chart svg' ).first() ).toBeVisible( { timeout: 30000 } );
-    await expect( page.locator( '.igsv-chart' ) ).not.toContainText( /error/i );
-    await expect( page.locator( '.igsv-chart' ) ).toContainText( 'Longest races' );
-    // Google shortens long labels, so compare the start of the first one.
-    await expect( page.locator( '.igsv-chart' ) ).toContainText( rows[ 1 ][ 0 ].slice( 0, 10 ) );
+test.describe( 'live files on GitHub', () => {
+    test.skip( ! live.enabled, 'Set any IGSV_LIVE_* variable to run.' );
+
+    test( 'a CSV file over HTTPS becomes a table', async ( { page } ) => {
+        await page.goto( url( 'live_file_csv' ) );
+        await expect( page.locator( '.dt-container' ) ).toBeVisible();
+        expect( await cells( page, 1 ) ).toEqual( [ 'Aliens', 'Ninjas', 'Pirates', 'Robots' ] );
+    } );
+
+    test( 'a chart from a CSV file uses the signed data endpoint', async ( { page } ) => {
+        const endpoint = page.waitForResponse( ( r ) => r.url().includes( 'igsv_datasource=1' ) );
+        await page.goto( url( 'live_file_chart' ) );
+        expect( ( await endpoint ).status() ).toBe( 200 );
+        await expect( page.locator( '.igsv-chart svg' ).first() ).toBeVisible( { timeout: 30000 } );
+        await expect( page.locator( '.igsv-chart' ) ).toContainText( 'Ninjas' );
+    } );
+
+    test( 'a PDF opens in the Google Docs Viewer', async ( { page } ) => {
+        await page.goto( url( 'live_file_pdf' ) );
+        const frame = page.locator( 'iframe[src^="https://docs.google.com/viewer?url="]' );
+        await expect( frame ).toHaveCount( 1 );
+        expect( await frame.getAttribute( 'src' ) ).toContain( encodeURIComponent( live.files + '/report.pdf' ) );
+    } );
+} );
+
+test( 'live: no PHP warnings were logged', async () => {
+    test.skip( ! live.enabled, 'No live resources configured.' );
+    const log = wp( 'eval "echo file_exists( WP_CONTENT_DIR . \'/debug.log\' ) ? file_get_contents( WP_CONTENT_DIR . \'/debug.log\' ) : \'\';"' );
+    expect( log.split( '\n' ).filter( ( l ) => /PHP (Warning|Notice|Deprecated|Fatal)/.test( l ) ) ).toEqual( [] );
 } );

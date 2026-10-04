@@ -17,7 +17,7 @@ composer install && npm install && npx playwright install chromium
 npm run env:start     # WordPress 7.x on PHP 8.3: dev site :8888, test site :8889
 npm run test:php      # PHPUnit (tests/phpunit/) in the tests-cli container
 npm run test:e2e      # Playwright (tests/e2e/plugin.spec.js) against :8888
-IGSV_LIVE_SHEET=<public sheet URL> npm run test:e2e:live   # live Google tests, run by hand
+npm run test:e2e:live # live tests against real Google resources; needs IGSV_LIVE_* variables
 composer lint         # PHPCS: WordPress.Security + PHPCompatibilityWP (PHP 7.4+)
 ```
 
@@ -25,7 +25,7 @@ composer lint         # PHPCS: WordPress.Security + PHPCompatibilityWP (PHP 7.4+
 - Multisite: run `bash -c "WP_MULTISITE=1 vendor/bin/phpunit"` in the same container.
 - Other PHP or WordPress versions: `WP_ENV_PHP_VERSION=8.1 WP_ENV_CORE=WordPress/WordPress#6.2 npx wp-env start`. After switching WordPress versions, re-activate a theme that exists in that version, or the dev site renders blank pages. The wp-env image for PHP 7.4 no longer builds; the CI job `phpunit-74` in [.github/workflows/tests.yml](.github/workflows/tests.yml) shows how to run PHP 7.4 in a plain `php:7.4-cli` container against wp-env's database.
 - Releases: run the Release workflow manually ([.github/workflows/release.yml](.github/workflows/release.yml)) with a bump type (patch, minor, major; `bin/next-version.sh`) or an exact version. It runs `bin/bump-version.sh` (sets the version everywhere and dates the `## Unreleased` changelog section), commits to a temporary `release/vX.Y.Z` branch, tests and builds that commit (tests.yml takes a `ref` input), then fast-forwards the branch, tags, publishes, and deletes the temporary branch. Pushing a `vX.Y.Z` tag also releases, but then the version must already be set. `bin/check-version.sh`, `bin/build-zip.sh`, `bin/verify-zip.sh`, and `bin/smoke-test-zip.sh` are the same steps the workflow runs; see "Releasing" in README.md. The zip is built with `git archive`, so new development-only files must be marked `export-ignore` in `.gitattributes`, and new run-time files must be added to the required list in `bin/verify-zip.sh` if they're essential.
-- `tests/phpunit/class-igsv-testcase.php` fakes all HTTP through `pre_http_request` (`mock_http()`); unmocked requests fail. The browser tests use a must-use plugin mapped only into the dev site (`tests/e2e/mu-plugin.php`) that serves `tests/e2e/fixtures/` for `https://example.test/` URLs; `tests/e2e/setup.php` creates the test posts. `tests/e2e/live-google.spec.js` uses a real public Google Sheet from the `IGSV_LIVE_SHEET` environment variable (passed to setup.php as an argument; never commit the URL) and compares results with Google's own export and query output; it skips when the variable is unset.
+- `tests/phpunit/class-igsv-testcase.php` fakes all HTTP through `pre_http_request` (`mock_http()`); unmocked requests fail. The browser tests use a must-use plugin mapped only into the dev site (`tests/e2e/mu-plugin.php`) that serves `tests/e2e/fixtures/` for `https://example.test/` URLs; `tests/e2e/setup.php` creates the test posts. `tests/e2e/live-google.spec.js` tests real resources from `IGSV_LIVE_SHEET`, `IGSV_LIVE_PRIVATE_SHEET`, and `IGSV_LIVE_WEBAPP` (validated in `tests/e2e/live.js`, passed to setup.php as `name=value` arguments; never commit the URLs) plus the fixture files on GitHub. Their required contents are in `tests/e2e/live/`; see "Live tests" in README.md. `.github/workflows/live.yml` runs them weekly from repository variables.
 
 ## Architecture
 

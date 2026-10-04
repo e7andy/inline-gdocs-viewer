@@ -174,14 +174,32 @@ npm run env:start         # WordPress at http://localhost:8888 (tests use :8889)
 
 npm run test:php          # PHPUnit in the wp-env test container
 npm run test:e2e          # Browser tests against http://localhost:8888
-IGSV_LIVE_SHEET="https://docs.google.com/spreadsheets/d/<id>/edit" npm run test:e2e:live
-                          # Live tests against a real public Google Sheet
+npm run test:e2e:live     # Live tests against real Google resources (see "Live tests")
 composer lint             # PHPCS: WordPress security rules and PHP 7.4+ compatibility
 ```
 
 Run a single PHPUnit test with `npx wp-env run tests-cli --env-cwd=wp-content/plugins/inline-gdocs-viewer vendor/bin/phpunit --filter test_name`. To test another PHP version, start wp-env with `WP_ENV_PHP_VERSION=8.1` (for example). GitHub Actions runs all of these on every push; see [.github/workflows/tests.yml](.github/workflows/tests.yml).
 
-The live tests (`tests/e2e/live-google.spec.js`) fetch a real public Google Sheet, so run them by hand before a release; they skip themselves when `IGSV_LIVE_SHEET` isn't set. They compare the plugin's tables, queries, and charts with what Google returns for the same request. The sheet needs headers in row 1, a text column A, a date-like text column C, and a number column I.
+### Live tests
+
+The live tests (`tests/e2e/live-google.spec.js`) use real resources on Google and GitHub, so they need the internet. GitHub Actions runs them every Monday and when you start **Actions > Live tests > Run workflow** ([.github/workflows/live.yml](.github/workflows/live.yml)); run them yourself before a release. Each group of tests skips itself when its resource isn't configured. The resources are set in environment variables, and in GitHub as repository variables (**Settings > Secrets and variables > Actions > Variables**):
+
+| Variable | Resource | Contents |
+| --- | --- | --- |
+| `IGSV_LIVE_SHEET` | A Google Sheet shared with "Anyone with the link" | First tab: [tests/e2e/live/sheet-first-tab.tsv](tests/e2e/live/sheet-first-tab.tsv). Second tab: [tests/e2e/live/sheet-second-tab.tsv](tests/e2e/live/sheet-second-tab.tsv). (Paste each file into cell A1.) |
+| `IGSV_LIVE_PRIVATE_SHEET` | A Google Sheet that is **not** shared | Anything |
+| `IGSV_LIVE_WEBAPP` | An Apps Script web app (its `/exec` URL) | [tests/e2e/live/webapp.gs](tests/e2e/live/webapp.gs), deployed as a web app that executes as you and that anyone can access |
+
+The CSV and PDF files come from this repository's `tests/e2e/fixtures/` on GitHub (set `IGSV_LIVE_FILES` to use another copy). To run the live tests on your machine:
+
+```sh
+export IGSV_LIVE_SHEET="https://docs.google.com/spreadsheets/d/<id>/edit"
+export IGSV_LIVE_PRIVATE_SHEET="https://docs.google.com/spreadsheets/d/<id>/edit"
+export IGSV_LIVE_WEBAPP="https://script.google.com/macros/s/<id>/exec"
+npm run test:e2e:live
+```
+
+A failure usually means that Google changed one of its services, or that a resource was edited, unshared, or redeployed. The run's **live-test-results** artifact has screenshots and details.
 
 The browser tests use a must-use plugin (`tests/e2e/mu-plugin.php`, mapped into the development site only) that serves fixture CSV files for `https://example.test/` URLs.
 

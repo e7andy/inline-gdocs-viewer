@@ -30,14 +30,40 @@ $by_contributor = array(
     'webapp_contributor' => $posts['webapp'],
 );
 
-// Optional live tests against a real public Google Sheet, passed as the
-// first argument: wp eval-file setup.php https://docs.google.com/spreadsheets/d/.../edit
-$sheet = isset( $args[0] ) ? $args[0] : '';
-if ( preg_match( '!^https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+!', $sheet ) ) {
-    $posts['live_table'] = '[gdoc key="' . $sheet . '" use_cache="no"]';
-    $posts['live_query'] = '[gdoc key="' . $sheet . '" csv_headers="1" use_cache="no" query="select A, C, I where C contains \'2026\'"]';
-    $posts['live_guess'] = '[gdoc key="' . $sheet . '" use_cache="no" query="select A, C"]';
-    $posts['live_chart'] = '[gdoc key="' . $sheet . '" chart="Bar" title="Longest races" csv_headers="1" query="select A, I where I is not null order by I desc limit 8"]';
+// Optional live tests against real resources, passed as name=value
+// arguments by tests/e2e/global-setup.js:
+//   sheet=<public sheet URL> gid=<second tab> private=<unshared sheet URL>
+//   webapp=<Apps Script /exec URL> files=<base URL of tests/e2e/fixtures>
+$live = array();
+foreach ( isset( $args ) ? $args : array() as $arg ) {
+    $pair = explode( '=', $arg, 2 );
+    if ( 2 === count( $pair ) ) {
+        $live[ $pair[0] ] = $pair[1];
+    }
+}
+if ( ! empty( $live['sheet'] ) && preg_match( '!^https://docs\.google\.com/spreadsheets/d/([A-Za-z0-9_-]+)!', $live['sheet'], $m ) ) {
+    $base = $m[0];
+    $posts['live_table']  = '[gdoc key="' . $base . '/edit" use_cache="no"]';
+    $posts['live_bare']   = '[gdoc key="' . $m[1] . '" class="no-datatables" use_cache="no"]';
+    $posts['live_query']  = '[gdoc key="' . $base . '/edit" class="no-datatables" csv_headers="1" use_cache="no" query="select A, B where B %3E 6 order by B desc"]';
+    $posts['live_chart']  = '[gdoc key="' . $base . '/edit" chart="Bar" title="Goals per team" csv_headers="1" query="select A, B order by B desc"]';
+    if ( ! empty( $live['gid'] ) && ctype_digit( $live['gid'] ) ) {
+        $posts['live_tab'] = '[gdoc key="' . $base . '/edit#gid=' . $live['gid'] . '" class="no-datatables" use_cache="no"]';
+    }
+}
+if ( ! empty( $live['private'] ) && preg_match( '!^https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+!', $live['private'], $m ) ) {
+    $posts['live_private'] = '[gdoc key="' . $m[0] . '/edit" use_cache="no"]';
+}
+if ( ! empty( $live['webapp'] ) && preg_match( '!^https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec$!', $live['webapp'] ) ) {
+    $posts['live_webapp']                    = '[gdoc key="' . $live['webapp'] . '" use_cache="no"]';
+    $by_contributor['live_webapp_contributor'] = $posts['live_webapp'];
+    $posts['live_webapp_csv']                = '[gdoc key="' . $live['webapp'] . '?format=csv" use_cache="no"]';
+    $posts['live_webapp_chart']              = '[gdoc key="' . $live['webapp'] . '" chart="Pie" title="Web app goals"]';
+}
+if ( ! empty( $live['files'] ) && preg_match( '!^https://[A-Za-z0-9.-]+/[A-Za-z0-9_./-]+$!', $live['files'] ) ) {
+    $posts['live_file_csv']   = '[gdoc key="' . $live['files'] . '/goals.csv" use_cache="no"]';
+    $posts['live_file_chart'] = '[gdoc key="' . $live['files'] . '/goals.csv" chart="Column" title="Goals from a file"]';
+    $posts['live_file_pdf']   = '[gdoc key="' . $live['files'] . '/report.pdf" height="400"]';
 }
 
 // SQL shortcodes only run when the setting is on and an administrator

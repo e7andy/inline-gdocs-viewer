@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fixed: A Google Sheet that isn't shared publicly now shows the "share it with Anyone with the link" message. Google answers such requests with HTTP 401 (or 403 or 404), which the plugin showed as a bare HTTP error.
+- Changed: Data source requests now wait up to 15 seconds instead of WordPress's default 5, because Apps Script web apps that are starting up often take longer. `http_opts` can still set a timeout from 1 to 30 seconds.
+- Development: Live tests against a real public sheet, an unshared sheet, an Apps Script web app, and files on GitHub, run weekly by GitHub Actions. Their resources are described in `tests/e2e/live/`.
 - Changed: CSV from addresses that don't end in `.csv`, such as a web service's export URL, is now shown as a table (and works with `query`) when the server sends a CSV content type. The plugin checks the content type with a cached `HEAD` request; other documents still open in the Google Docs Viewer and are not downloaded by your server.
 - Development: Publishing a draft release no longer starts a second Release run that fails: the workflow skips tag pushes for releases that already exist.
 - Development: Added tests for CSV without a `.csv` address, Google Sheets by bare ID and by tab (`gid`), sheets that aren't shared, Apps Script charts, and browser tests for Apps Script web apps (HTML and CSV) and SQL tables.

@@ -30,6 +30,15 @@ class Test_Http_Security extends IGSV_TestCase {
         $this->assertTrue( $args['reject_unsafe_urls'], 'Unsafe URLs are always rejected.' );
     }
 
+    public function test_default_timeout_allows_slow_web_apps() {
+        $this->mock_http( 'https://example.com/data.csv', self::CSV );
+        $this->render( '[gdoc key="https://example.com/data.csv"]' );
+        $this->assertSame( 15, $this->http_requests[0]['args']['timeout'] );
+
+        do_shortcode( '[gdoc key="https://example.com/data.csv" use_cache="no" http_opts=\'{"timeout":3}\']' );
+        $this->assertSame( 3, $this->http_requests[1]['args']['timeout'], 'http_opts can still set the timeout.' );
+    }
+
     public function test_http_opts_rejects_bad_method_and_bad_json() {
         $this->mock_http( 'https://example.com/data.csv', self::CSV );
         $this->render( '[gdoc key="https://example.com/data.csv" http_opts=\'{"method":"DELETE"}\']' );

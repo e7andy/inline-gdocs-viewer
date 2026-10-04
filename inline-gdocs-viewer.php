@@ -871,6 +871,12 @@ class InlineGoogleSpreadsheetViewerPlugin {
                 . __( 'This address cannot be used as a data source. Only public http and https addresses are allowed.', 'inline-gdocs-viewer' )
             );
         }
+        // WordPress gives up after 5 seconds by default, which is too short
+        // for Apps Script web apps that are starting up. http_opts can set
+        // another timeout (1 to 30 seconds).
+        if ( ! isset( $http_args['timeout'] ) ) {
+            $http_args['timeout'] = 15;
+        }
         add_action( 'requests-requests.before_redirect', array( __CLASS__, 'validateRedirect' ) );
         $resp = wp_safe_remote_request( $url, $http_args );
         remove_action( 'requests-requests.before_redirect', array( __CLASS__, 'validateRedirect' ) );
@@ -883,7 +889,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
                 /* translators: %d: HTTP status code. */
                 __( 'Error requesting data: the data source returned HTTP status %d.', 'inline-gdocs-viewer' ),
                 $code
-            ) );
+            ), $code );
         }
         return array(
             'body'         => (string) wp_remote_retrieve_body( $resp ),
@@ -1566,9 +1572,18 @@ class InlineGoogleSpreadsheetViewerPlugin {
             $key_type = 'csv';
         }
 
-        $url           = ( 'spreadsheet' === $key_type ) ? $this->getSpreadsheetUrl( $x ) : $x['key'];
-        $http_response = $this->fetchData( $url, $x );
-        $is_csv        = self::isCsvContentType( $http_response['content_type'] );
+        $url = ( 'spreadsheet' === $key_type ) ? $this->getSpreadsheetUrl( $x ) : $x['key'];
+        try {
+            $http_response = $this->fetchData( $url, $x );
+        } catch ( \RuntimeException $e ) {
+            // Google answers 401, 403, or 404 for sheets that aren't shared
+            // publicly (or don't exist); say what to do about it.
+            if ( 'spreadsheet' === $key_type && in_array( $e->getCode(), array( 401, 403, 404 ), true ) ) {
+                throw new \RuntimeException( self::sheetNotSharedMessage(), $e->getCode(), $e );
+            }
+            throw $e;
+        }
+        $is_csv = self::isCsvContentType( $http_response['content_type'] );
 
         if ( 'gasapp' === $key_type && ! $is_csv ) {
             $html = $http_response['body'];
@@ -1579,13 +1594,20 @@ class InlineGoogleSpreadsheetViewerPlugin {
         }
 
         if ( 'spreadsheet' === $key_type && ! $is_csv ) {
-            throw new \RuntimeException(
-                __( 'Error:', 'inline-gdocs-viewer' ) . ' '
-                . __( 'Google did not return spreadsheet data. Check that the spreadsheet is shared with "Anyone with the link".', 'inline-gdocs-viewer' )
-            );
+            throw new \RuntimeException( self::sheetNotSharedMessage() );
         }
 
         return $this->csvToDataTable( $http_response['body'], $x, $content, 'csv' === $key_type ? $x['query'] : '' );
+    }
+
+    /**
+     * The error shown when Google doesn't return a sheet's data.
+     *
+     * @return string
+     */
+    private static function sheetNotSharedMessage () {
+        return __( 'Error:', 'inline-gdocs-viewer' ) . ' '
+            . __( 'Google did not return spreadsheet data. Check that the spreadsheet exists and is shared with "Anyone with the link".', 'inline-gdocs-viewer' );
     }
 
     /**
