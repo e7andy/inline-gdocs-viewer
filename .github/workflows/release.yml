@@ -5,7 +5,7 @@ name: Release
 # - Manually (recommended): Actions > Release > Run workflow. Choose how to
 #   raise the version (patch, minor, or major) or type an exact version. The
 #   workflow sets the new version everywhere, turns the changelog's
-#   "Unreleased (fork)" section into the new version's section, tests and
+#   "Unreleased" section into the new version's section, tests and
 #   builds that commit, and only then adds the commit to the branch, tags it,
 #   and publishes the release. Tick "build-only" to test and build the zip of
 #   the current code without changing the version or publishing anything.

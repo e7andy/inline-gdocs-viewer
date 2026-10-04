@@ -17,7 +17,8 @@ fail() { echo "ERROR: $*" >&2; errors=$((errors + 1)); }
 [ "$header" = "$version" ] || fail "Plugin header says Version: $header, expected $version."
 grep -q "const version = '$version';" inline-gdocs-viewer.php || fail "const version in inline-gdocs-viewer.php is not '$version'."
 grep -q "^- \*\*Version:\*\* $version\$" README.md || fail "README.md does not say Version: $version."
-grep -q "^## $version\b" CHANGELOG.md || fail "CHANGELOG.md has no '## $version' section."
+awk -v v="$version" '$0 == "## " v || index($0, "## " v " ") == 1 { found = 1 } END { exit !found }' CHANGELOG.md \
+    || fail "CHANGELOG.md has no '## $version' section."
 grep -qF "\"Project-Id-Version: Inline Google Spreadsheet Viewer $version\\n\"" languages/inline-gdocs-viewer.pot \
     || fail "languages/inline-gdocs-viewer.pot is not for version $version (regenerate it; see CLAUDE.md)."
 

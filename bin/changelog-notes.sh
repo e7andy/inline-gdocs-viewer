@@ -9,7 +9,7 @@ version="${1:?Usage: bin/changelog-notes.sh VERSION}"
 version="${version#v}"
 
 notes=$(awk -v v="$version" '
-    /^## / { if (found) exit; if (index($0, "## " v) == 1) { found = 1; next } }
+    /^## / { if (found) exit; if ($0 == "## " v || index($0, "## " v " ") == 1) { found = 1; next } }
     found { print }
 ' CHANGELOG.md)
 
