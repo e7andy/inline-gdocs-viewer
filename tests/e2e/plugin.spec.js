@@ -133,6 +133,50 @@ test( 'docs viewer iframe is rendered', async ( { page } ) => {
     await expect( page.locator( 'iframe[src^="https://docs.google.com/viewer?url="]' ) ).toHaveCount( 1 );
 } );
 
+test( 'CSV from an address without .csv becomes a DataTables table', async ( { page } ) => {
+    await page.goto( url( 'export' ) );
+    await expect( page.locator( '.dt-container' ) ).toBeVisible();
+    await expect( page.locator( 'table.igsv-table tbody tr' ) ).toHaveCount( 4 );
+    await expect( page.locator( 'iframe' ) ).toHaveCount( 0 );
+} );
+
+test( 'Apps Script web app HTML is shown as-is for an administrator\'s post', async ( { page } ) => {
+    await page.goto( url( 'webapp' ) );
+    const app = page.locator( '.igsv-e2e-webapp' );
+    await expect( app ).toBeVisible();
+    await expect( app.locator( 'strong' ) ).toHaveText( '12' );
+    expect( await page.evaluate( () => window.igsvE2eWebappScript === true ) ).toBe( true );
+} );
+
+test( 'Apps Script web app HTML is filtered for a contributor\'s post', async ( { page } ) => {
+    await page.goto( url( 'webapp_contributor' ) );
+    const app = page.locator( '.igsv-e2e-webapp' );
+    await expect( app ).toBeVisible();
+    await expect( app.locator( 'strong' ) ).toHaveText( '12' );
+    await expect( app.locator( 'script' ) ).toHaveCount( 0 );
+    await expect( app.locator( '.hover-me' ) ).toBeVisible();
+    await expect( app.locator( '[onmouseover]' ) ).toHaveCount( 0 );
+    expect( await page.evaluate( () => typeof window.igsvE2eWebappScript ) ).toBe( 'undefined' );
+} );
+
+test( 'Apps Script web app returning CSV becomes a DataTables table', async ( { page } ) => {
+    await page.goto( url( 'webapp_csv' ) );
+    await expect( page.locator( '.dt-container' ) ).toBeVisible();
+    await expect( page.locator( 'table.igsv-table tbody tr' ) ).toHaveCount( 4 );
+} );
+
+test( 'SQL query on the WordPress database becomes a DataTables table', async ( { page } ) => {
+    await page.goto( url( 'sql' ) );
+    await expect( page.locator( '.igsv-error' ) ).toHaveCount( 0 );
+    await expect( page.locator( '.dt-container' ) ).toBeVisible();
+    const headers = await page.locator( 'table.igsv-table thead th' ).allTextContents();
+    expect( headers.map( ( h ) => h.trim() ) ).toEqual( [ 'Title', 'Slug' ] );
+    const table_id = await page.locator( 'table.igsv-table' ).getAttribute( 'id' );
+    const slugs = await page.evaluate( ( id ) => jQuery( '#' + id ).DataTable().column( 1 ).data().toArray(), table_id );
+    expect( slugs ).toContain( 'igsv-e2e-sql' );
+    expect( slugs.every( ( s ) => s.startsWith( 'igsv-e2e-' ) ) ).toBe( true );
+} );
+
 test( 'pages without the shortcode load no plugin scripts', async ( { page } ) => {
     await page.goto( url( 'none' ) );
     const scripts = await page.locator( 'script[src]' ).evaluateAll( ( els ) => els.map( ( e ) => e.src ) );

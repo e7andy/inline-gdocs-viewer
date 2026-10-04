@@ -43,9 +43,9 @@ The plugin chooses how to handle a source from the `key` value:
 | --- | --- |
 | Google Sheets URL (or document ID) | HTML table or chart |
 | `https://script.google.com/...` web app URL | The web app's output (CSV output becomes a table). Unsafe HTML is removed unless the author may post unfiltered HTML |
-| URL ending in `.csv` | HTML table or chart |
+| URL ending in `.csv`, or any URL whose server sends CSV (`text/csv`) | HTML table or chart |
 | `wordpress` | Runs a SQL `SELECT` on the site's database |
-| Any other URL | Google Docs Viewer `<iframe>` |
+| Any other URL (PDF, Word, Excel, ...) | Google Docs Viewer `<iframe>` |
 
 ```text
 [gdoc key="http://example.com/research_data.csv"]

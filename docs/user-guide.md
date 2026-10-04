@@ -24,7 +24,7 @@ After you save the sharing setting, copy the spreadsheet's URL from your browser
 
 ## CSV files
 
-CSV files work the same way as Google Spreadsheets. Set `key` to the file's URL to display it as an HTML table:
+CSV files work the same way as Google Spreadsheets. Set `key` to the file's URL to display it as an HTML table. The address doesn't have to end in `.csv`: a web service's export address works too, as long as the server says it's sending CSV (the `text/csv` content type).
 
 ```text
 [gdoc key="http://example.com/research_data.csv"]
@@ -135,7 +135,7 @@ Your website then updates on its own whenever a new question arrives.
 
 ## Embedding other documents
 
-To show a preview of any file that's online, set `key` to the file's URL:
+To show a preview of any file that's online, set `key` to the file's URL. (If the server sends CSV, the plugin shows a table instead.)
 
 ```text
 [gdoc key="http://example.com/my_final_paper.pdf"]

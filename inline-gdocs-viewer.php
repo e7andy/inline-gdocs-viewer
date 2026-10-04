@@ -654,6 +654,51 @@ class InlineGoogleSpreadsheetViewerPlugin {
     }
 
     /**
+     * Whether a content type (without parameters such as charset) is CSV.
+     *
+     * @param string $content_type
+     *
+     * @return bool
+     */
+    private static function isCsvContentType ( $content_type ) {
+        return in_array( strtolower( (string) $content_type ), array( 'text/csv', 'application/csv', 'text/comma-separated-values' ), true );
+    }
+
+    /**
+     * Asks a server what type of content a URL serves, with a HEAD request.
+     *
+     * Used to tell CSV data apart from documents for the Google Docs Viewer.
+     * The answer is cached like other responses. Returns an empty string if
+     * the URL may not be fetched or the request fails; the caller then shows
+     * the Docs Viewer, which fetches the document from Google's servers.
+     *
+     * @param string $url
+     * @param array  $x   Shortcode attributes (`use_cache`, `expire_in`).
+     *
+     * @return string The content type, such as `text/csv`, or ''.
+     */
+    private function detectContentType ( $url, $x ) {
+        $transient = self::getTransientName( array( 'HEAD', $url ) );
+        $use_cache = ! ( false === $x['use_cache'] || 'no' === strtolower( (string) $x['use_cache'] ) );
+        if ( $use_cache ) {
+            $cached = self::getTransient( $transient );
+            if ( false !== $cached ) {
+                return $cached['content_type'];
+            }
+        }
+        try {
+            $response = self::doHttpRequest( $url, array( 'method' => 'HEAD', 'timeout' => 10 ) );
+        } catch ( \Exception $e ) {
+            $response = array( 'body' => '', 'content_type' => '', 'code' => 0 );
+        }
+        if ( $use_cache ) {
+            // Failures are cached too, so a slow or broken server isn't asked on every page view.
+            self::setTransient( $transient, array( 'body' => '', 'content_type' => $response['content_type'], 'code' => $response['code'] ), (int) $x['expire_in'] );
+        }
+        return $response['content_type'];
+    }
+
+    /**
      * Retrieves data from the transient cache if available, or via HTTP if not.
      *
      * @param string $url The URL to fetch, if not in cache.
@@ -1513,12 +1558,17 @@ class InlineGoogleSpreadsheetViewerPlugin {
         }
 
         if ( 'docsviewer' === $key_type ) {
-            return $this->getGDocsViewerOutput( $x );
+            // Addresses that don't end in .csv may still serve CSV, such as
+            // a web service's export URL. Ask the server what it serves.
+            if ( ! self::isCsvContentType( $this->detectContentType( $x['key'], $x ) ) ) {
+                return $this->getGDocsViewerOutput( $x );
+            }
+            $key_type = 'csv';
         }
 
         $url           = ( 'spreadsheet' === $key_type ) ? $this->getSpreadsheetUrl( $x ) : $x['key'];
         $http_response = $this->fetchData( $url, $x );
-        $is_csv        = in_array( $http_response['content_type'], array( 'text/csv', 'application/csv' ), true );
+        $is_csv        = self::isCsvContentType( $http_response['content_type'] );
 
         if ( 'gasapp' === $key_type && ! $is_csv ) {
             $html = $http_response['body'];

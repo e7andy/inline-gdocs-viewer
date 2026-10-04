@@ -181,13 +181,15 @@ class Test_Tables extends IGSV_TestCase {
     }
 
     public function test_docs_viewer_iframe() {
+        $this->mock_http( 'https://example.com/paper.pdf', '', 'application/pdf' );
         $html  = $this->render( '[gdoc key="https://example.com/paper.pdf" height="500" title="Paper"]' );
         $xp    = $this->xpath( $html );
         $frame = $xp->query( '//iframe' )->item( 0 );
         $this->assertNotNull( $frame );
         $this->assertSame( 'https://docs.google.com/viewer?url=https%3A%2F%2Fexample.com%2Fpaper.pdf&embedded=true', $frame->getAttribute( 'src' ) );
         $this->assertSame( '500', $frame->getAttribute( 'height' ) );
-        $this->assertCount( 0, $this->http_requests, 'The viewer needs no server-side request.' );
+        $this->assertCount( 1, $this->http_requests, 'Only the content type is checked.' );
+        $this->assertSame( 'HEAD', $this->http_requests[0]['args']['method'], 'The document itself is not downloaded.' );
     }
 
     public function test_lang_attribute_is_validated() {
