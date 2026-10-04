@@ -27,7 +27,7 @@ sed -i "s/^\( \* \* Version: *\).*/\1$version/" inline-gdocs-viewer.php
 sed -i "s/const version = '[^']*';/const version = '$version';/" inline-gdocs-viewer.php
 sed -i "s/^- \*\*Version:\*\* .*/- **Version:** $version/" README.md
 sed -i "s/\(Project-Id-Version: Inline Google Spreadsheet Viewer \)[^\\]*/\1$version/" languages/inline-gdocs-viewer.pot
-awk -v v="$version" -v d="$(date +%Y-%m-%d)" '
+awk -v v="$version" -v d="${RELEASE_DATE:-$(date +%Y-%m-%d)}" '
     $0 == "## Unreleased (fork)" { print; print ""; print "Nothing yet."; print ""; print "## " v " (fork) - " d; next }
     { print }
 ' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md

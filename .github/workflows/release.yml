@@ -2,24 +2,33 @@ name: Release
 
 # Two ways to release (see "Releasing" in README.md):
 #
-# - Push a version tag:    git tag v1.2.3 && git push origin v1.2.3
-# - Release manually:      Actions > Release > Run workflow, then enter the
-#                          version. The tag is created on the chosen branch's
-#                          latest commit when the release is published. Tick
-#                          "build-only" to test and build the zip without
-#                          publishing; the zip is then on the run's page.
+# - Manually (recommended): Actions > Release > Run workflow. Choose how to
+#   raise the version (patch, minor, or major) or type an exact version. The
+#   workflow sets the new version everywhere, turns the changelog's
+#   "Unreleased (fork)" section into the new version's section, tests and
+#   builds that commit, and only then adds the commit to the branch, tags it,
+#   and publishes the release. Tick "build-only" to test and build the zip of
+#   the current code without changing the version or publishing anything.
 #
-# Either way, the version must already be set in the code (bin/bump-version.sh),
-# the tests must pass, and the built zip must install and work.
+# - Tag push: set the version yourself (bin/bump-version.sh), commit, then
+#   git tag v1.2.3 && git push origin v1.2.3
+#
+# If any step fails, nothing is published and the branch is unchanged.
 
 on:
   push:
     tags: [ 'v*.*.*' ]
   workflow_dispatch:
     inputs:
+      bump:
+        description: 'How to raise the version: patch (1.0.0 -> 1.0.1), minor (-> 1.1.0), or major (-> 2.0.0)'
+        type: choice
+        options: [ patch, minor, major ]
+        default: patch
       version:
-        description: 'Version to release, such as 1.2.3 (must match the version in the code)'
-        required: true
+        description: 'Exact version instead, such as 1.2.0 or 1.2.0-beta.1 (optional; overrides "bump")'
+        required: false
+        default: ''
       draft:
         description: 'Create the release as a draft (publish it yourself later)'
         type: boolean
@@ -29,7 +38,7 @@ on:
         type: boolean
         default: false
       build-only:
-        description: 'Only test and build the zip (download it from the run page); do not publish a release'
+        description: 'Only test and build the zip of the current code; do not change the version or publish'
         type: boolean
         default: false
 
@@ -42,11 +51,15 @@ concurrency:
 
 jobs:
   prepare:
-    name: Check version
+    name: Set the version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # to push the temporary release branch
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      ref: ${{ steps.commit.outputs.ref }}
+      release-branch: ${{ steps.commit.outputs.release-branch }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -54,48 +67,85 @@ jobs:
       - name: Work out the version
         id: version
         env:
+          BUMP: ${{ inputs.bump }}
           INPUT_VERSION: ${{ inputs.version }}
+          BUILD_ONLY: ${{ inputs.build-only }}
         run: |
+          current=$(sed -n 's/^ \* \* Version: *\([^ ]*\).*/\1/p' inline-gdocs-viewer.php | head -1)
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            version="${GITHUB_REF_NAME#v}"
-          else
+            version="${GITHUB_REF_NAME#v}"            # tag push: the tag names the version
+          elif [ "$BUILD_ONLY" = "true" ]; then
+            version="$current"                        # build only: keep the current version
+          elif [ -n "$INPUT_VERSION" ]; then
             version="${INPUT_VERSION#v}"
+          else
+            version=$(bin/next-version.sh "$current" "$BUMP")
           fi
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::'$version' is not a version like 1.2.3"
             exit 1
           fi
+          echo "Current version: $current. Release version: $version."
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
-      - name: Check that the code states this version everywhere
-        run: bin/check-version.sh "${{ steps.version.outputs.version }}"
-      - name: Check that the changelog has notes for this version
-        run: bin/changelog-notes.sh "${{ steps.version.outputs.version }}" > /dev/null
       - name: Check that a manual release doesn't reuse a tag
         if: github.event_name == 'workflow_dispatch' && ! inputs.build-only
         run: |
           if git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.tag }}" > /dev/null; then
-            echo "::error::Tag ${{ steps.version.outputs.tag }} already exists. Bump the version first (bin/bump-version.sh)."
+            echo "::error::Tag ${{ steps.version.outputs.tag }} already exists. Choose a higher version."
             exit 1
           fi
+      - name: Commit the new version to a temporary release branch
+        id: commit
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE: ${{ github.event_name == 'workflow_dispatch' && ! inputs.build-only }}
+        run: |
+          if [ "$RELEASE" != "true" ]; then
+            # Tag push or build only: use the code as it is.
+            bin/check-version.sh "$VERSION"
+            echo "ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "release-branch=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RELEASE_DATE=$(date -u +%Y-%m-%d) bin/bump-version.sh "$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -am "Release $VERSION"
+          git show --stat HEAD
+          # The commit only reaches the real branch after the tests and the
+          # build pass (in the release job).
+          git push origin "HEAD:refs/heads/release/v$VERSION"
+          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "release-branch=release/v$VERSION" >> "$GITHUB_OUTPUT"
 
   tests:
     name: Tests
     needs: prepare
     uses: ./.github/workflows/tests.yml
+    with:
+      ref: ${{ needs.prepare.outputs.ref }}
 
   build:
     name: Build and smoke-test the zip
     needs: prepare
     runs-on: ubuntu-latest
+    outputs:
+      zip-name: ${{ steps.zip.outputs.name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '7.4'
+      - name: Check the version and the changelog notes
+        run: |
+          bin/check-version.sh "${{ needs.prepare.outputs.version }}"
+          bin/changelog-notes.sh "${{ needs.prepare.outputs.version }}" > /dev/null
       - run: npm ci
       - name: Build the zip
         id: zip
@@ -126,8 +176,6 @@ jobs:
           path: ${{ steps.zip.outputs.path }}.sha256
           archive: false
           if-no-files-found: error
-    outputs:
-      zip-name: ${{ steps.zip.outputs.name }}
 
   release:
     name: Publish GitHub release
@@ -138,6 +186,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+          fetch-depth: 0
       # skip-decompress keeps the plugin zip as it is instead of unpacking it.
       - uses: actions/download-artifact@v8
         with:
@@ -150,9 +201,16 @@ jobs:
           path: dist
           skip-decompress: true
       - name: Check the downloaded zip against its checksum
+        run: cd dist && sha256sum -c "${{ needs.build.outputs.zip-name }}.sha256"
+      - name: Add the version commit to the branch
+        if: needs.prepare.outputs.release-branch != ''
+        env:
+          REF: ${{ needs.prepare.outputs.ref }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          ls -la dist
-          cd dist && sha256sum -c "${{ needs.build.outputs.zip-name }}.sha256"
+          # A fast-forward push: it fails, and nothing is published, if
+          # someone pushed to the branch while the release was running.
+          git push origin "$REF:refs/heads/$BRANCH"
       - name: Write release notes from CHANGELOG.md
         run: bin/changelog-notes.sh "${{ needs.prepare.outputs.version }}" > release-notes.md
       - name: Create the release
@@ -160,17 +218,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.prepare.outputs.version }}
           TAG: ${{ needs.prepare.outputs.tag }}
+          REF: ${{ needs.prepare.outputs.ref }}
+          ZIP: ${{ needs.build.outputs.zip-name }}
           DRAFT: ${{ inputs.draft }}
           PRERELEASE: ${{ inputs.prerelease }}
-          ZIP: ${{ needs.build.outputs.zip-name }}
         run: |
           args=( "$TAG" "dist/$ZIP" "dist/$ZIP.sha256"
                  --title "Inline Google Spreadsheet Viewer $VERSION"
                  --notes-file release-notes.md )
           prerelease=false
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            # Manual release: create the tag on the commit that was tested.
-            args+=( --target "$GITHUB_SHA" )
+            # Manual release: create the tag on the tested version commit.
+            args+=( --target "$REF" )
             if [ "$DRAFT" = "true" ]; then args+=( --draft ); fi
             prerelease="$PRERELEASE"
           else
@@ -182,3 +241,17 @@ jobs:
             args+=( --prerelease )
           fi
           gh release create "${args[@]}"
+
+  cleanup:
+    name: Delete the temporary release branch
+    needs: [ prepare, release ]
+    if: always() && needs.prepare.outputs.release-branch != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete ${{ needs.prepare.outputs.release-branch }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.prepare.outputs.release-branch }}
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" || true

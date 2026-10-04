@@ -189,20 +189,23 @@ The browser tests use a must-use plugin (`tests/e2e/mu-plugin.php`, mapped into 
 
 Releases are built and published by GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)). Each release has the installable zip, `inline-gdocs-viewer-X.Y.Z.zip`, its SHA-256 checksum, and the version's section of [CHANGELOG.md](CHANGELOG.md) as release notes. The zip contains one folder, `inline-google-spreadsheet-viewer/` (the plugin's original folder name), so installing it upgrades an existing install of the plugin instead of adding a second copy. Versions follow [semantic versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
-1. List the changes under `## Unreleased (fork)` in CHANGELOG.md as you make them.
-2. Set the new version everywhere and date the changelog section:
+1. List the changes under `## Unreleased (fork)` in CHANGELOG.md as you make them, and push them to `master`. A release needs at least one entry there; these become the release notes.
+2. On GitHub, open **Actions > Release > Run workflow**, keep the branch as `master`, and choose how to raise the version:
+    - **patch** for fixes (1.0.0 → 1.0.1), **minor** for new features (1.0.0 → 1.1.0), or **major** for changes that break existing use (1.0.0 → 2.0.0);
+    - or type an exact **version**, such as `1.2.0-beta.1`.
 
-    ```sh
-    bin/bump-version.sh 1.2.3
-    ```
+    You can also choose to create a draft or a pre-release.
 
-    If you changed any translatable strings, also regenerate the `.pot` file (see CLAUDE.md). Review the changes, commit them, and push to `master`.
-3. Release, in one of two ways:
-    - **Tag push:** `git tag v1.2.3 && git push origin v1.2.3`
-    - **Manually:** on GitHub, open **Actions > Release > Run workflow**, choose the branch, and enter `1.2.3`. You can also choose to create a draft or a pre-release. The `v1.2.3` tag is created when the release is published.
-    - **Build only:** run the Release workflow manually with **build-only** ticked. It tests and builds the zip without publishing anything; download the zip from the run's page under **Artifacts**.
+The workflow raises the version for you: it sets the new version everywhere it appears and turns `## Unreleased (fork)` into a dated section for that version (with `bin/bump-version.sh`), and commits that as "Release X.Y.Z" on a temporary `release/vX.Y.Z` branch. It tests and builds that commit. Only when everything passes does it add the commit to `master`, tag it `vX.Y.Z`, and publish the release; the temporary branch is then deleted. If someone pushes to `master` while a release runs, the release stops instead of overwriting their work. Pull `master` afterwards to get the version commit.
 
-The workflow then checks that the code states the version everywhere and that the changelog has notes for it, runs the full test workflow, builds the zip, checks its contents and PHP syntax, installs it in WordPress and renders a table, and only then publishes the release. If any step fails, nothing is published. Versions with a suffix, such as `1.2.3-beta.1`, are published as pre-releases. The zip on the release page and the one under the run's **Artifacts** are the same installable file; upload either one in WordPress under **Plugins > Add New > Upload Plugin**. (Use the release zip, not GitHub's automatic "Source code" archives, which contain the development files.)
+Two other ways to run the workflow:
+
+- **Build only:** tick **build-only**. It tests and builds a zip of the current code, without changing the version or publishing anything; download the zip from the run's page under **Artifacts**.
+- **Tag push:** set the version yourself with `bin/bump-version.sh 1.2.3`, commit and push, then `git tag v1.2.3 && git push origin v1.2.3`.
+
+If you changed any translatable strings, regenerate the `.pot` file (see CLAUDE.md) before releasing; the version bump only updates its header.
+
+In every case, the workflow checks that the code states the version everywhere and that the changelog has notes for it, runs the full test workflow, builds the zip, checks its contents and PHP syntax, installs it in WordPress and renders a table, and only then publishes the release. If any step fails, nothing is published and `master` is unchanged. Versions with a suffix, such as `1.2.3-beta.1`, are published as pre-releases. The zip on the release page and the one under the run's **Artifacts** are the same installable file; upload either one in WordPress under **Plugins > Add New > Upload Plugin**. (Use the release zip, not GitHub's automatic "Source code" archives, which contain the development files.)
 
 To build and check a zip on your own machine (with wp-env running for the smoke test):
 
