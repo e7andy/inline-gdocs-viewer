@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the Inline Google Spreadsheet Viewer plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: Inline Google Spreadsheet Viewer 1.1.0\n"
+"Project-Id-Version: Inline Google Spreadsheet Viewer 1.1.1\n"
 "Report-Msgid-Bugs-To: https://github.com/e7andy/inline-gdocs-viewer/issues\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"

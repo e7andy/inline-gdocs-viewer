@@ -7,7 +7,7 @@
  * * Plugin Name: Inline Google Spreadsheet Viewer
  * * Plugin URI: https://github.com/e7andy/inline-gdocs-viewer
  * * Description: Retrieves data from a public Google Spreadsheet or CSV file and displays it as an HTML table or interactive chart.
- * * Version: 1.1.0
+ * * Version: 1.1.1
  * * Requires at least: 6.2
  * * Requires PHP: 7.4
  * * Text Domain: inline-gdocs-viewer
@@ -52,7 +52,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
      *
      * @var string
      */
-    const version = '1.1.0';
+    const version = '1.1.1';
 
     /**
      * Post meta key listing the SQL shortcodes that a user allowed to run SQL saved.
