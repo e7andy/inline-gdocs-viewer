@@ -94,6 +94,7 @@ Tables are enhanced with [DataTables](https://datatables.net/), which adds sorti
 
 - `class="no-datatables"` turns off DataTables, and `class="no-responsive"` turns off only the Responsive extension.
 - `class="FixedHeader"` freezes the header row. `class="FixedColumns-left-3"` freezes the three leftmost columns.
+- `cell_colors="yes"` shows a Google Sheet's cell background colors (Google Sheets without `query` only).
 - `linkify="no"` stops URLs and email addresses from being turned into links. Links open in a new tab; use `link_target="_self"` to open them in the same tab.
 - `header_rows`, `footer_rows`, `header_cols`, and `strip` control the `<thead>`, the `<tfoot>`, `<th>` cells, and how many leading rows are skipped.
 
@@ -209,7 +210,7 @@ The live tests (`tests/e2e/live-google.spec.js`) use real resources on Google an
 
 | Variable | Resource | Contents |
 | --- | --- | --- |
-| `IGSV_LIVE_SHEET` | A Google Sheet shared with "Anyone with the link" | First tab: [tests/e2e/live/sheet-first-tab.tsv](tests/e2e/live/sheet-first-tab.tsv). Second tab: [tests/e2e/live/sheet-second-tab.tsv](tests/e2e/live/sheet-second-tab.tsv). (Paste each file into cell A1.) |
+| `IGSV_LIVE_SHEET` | A Google Sheet shared with "Anyone with the link" | Two tabs with some colored cells; see [tests/e2e/live/README.md](tests/e2e/live/README.md) |
 | `IGSV_LIVE_PRIVATE_SHEET` | A Google Sheet that is **not** shared | Anything |
 | `IGSV_LIVE_WEBAPP` | An Apps Script web app (its `/exec` URL) | [tests/e2e/live/webapp.gs](tests/e2e/live/webapp.gs), deployed as a web app that executes as you and that anyone can access |
 

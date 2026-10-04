@@ -47,6 +47,7 @@ if ( ! empty( $live['sheet'] ) && preg_match( '!^https://docs\.google\.com/sprea
     $posts['live_bare']   = '[gdoc key="' . $m[1] . '" class="no-datatables" use_cache="no"]';
     $posts['live_query']  = '[gdoc key="' . $base . '/edit" class="no-datatables" csv_headers="1" use_cache="no" query="select A, B where B %3E 6 order by B desc"]';
     $posts['live_chart']  = '[gdoc key="' . $base . '/edit" chart="Bar" title="Goals per team" csv_headers="1" query="select A, B order by B desc"]';
+    $posts['live_colors'] = '[gdoc key="' . $base . '/edit" cell_colors="yes" use_cache="no"]';
     if ( ! empty( $live['gid'] ) && ctype_digit( $live['gid'] ) ) {
         $posts['live_tab'] = '[gdoc key="' . $base . '/edit#gid=' . $live['gid'] . '" class="no-datatables" use_cache="no"]';
     }

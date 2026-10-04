@@ -93,6 +93,21 @@ test.describe( 'live Google Sheet', () => {
         expect( await cells( page, 2 ) ).toEqual( [ '12', '9', '7' ] );
     } );
 
+    test( "cell_colors shows the sheet's background colors", async ( { page } ) => {
+        // The sheet's header row (A1:D1) is "light gray 1" (#d9d9d9) and the
+        // Ninjas row (A3:D3) is "light green 3" (#d9ead3); see tests/e2e/live/.
+        await page.goto( url( 'live_colors' ) );
+        await expect( page.locator( '.dt-container' ) ).toBeVisible();
+        const background = ( locator ) => locator.evaluateAll( ( els ) => els.map( ( el ) => getComputedStyle( el ).backgroundColor ) );
+        const gray = 'rgb(217, 217, 217)';
+        const green = 'rgb(217, 234, 211)';
+        expect( await background( page.locator( 'table.igsv-table thead th' ) ) ).toEqual( [ gray, gray, gray, gray ] );
+        const ninjas = page.locator( 'table.igsv-table tbody tr', { hasText: 'Ninjas' } ).locator( 'td' );
+        expect( await background( ninjas ) ).toEqual( [ green, green, green, green ] );
+        const aliens = page.locator( 'table.igsv-table tbody tr', { hasText: 'Aliens' } ).locator( 'td' );
+        expect( ( await background( aliens ) ).filter( ( c ) => c === green || c === gray ) ).toEqual( [] );
+    } );
+
     test( 'chart draws straight from Google', async ( { page } ) => {
         const google = page.waitForRequest( ( r ) => r.url().startsWith( live.sheet + '/gviz/tq' ) );
         await page.goto( url( 'live_chart' ) );

@@ -53,6 +53,14 @@ All tables are enhanced with jQuery [DataTables](https://datatables.net/), which
 [gdoc key="ABCDEFG" class="no-datatables"]
 ```
 
+To show your Google Sheet's cell background colors in the table, add `cell_colors="yes"`:
+
+```text
+[gdoc key="ABCDEFG" cell_colors="yes"]
+```
+
+This works for Google Sheets without a `query`. Text colors and other formatting aren't copied.
+
 Web addresses and email addresses in your data are turned into links. To turn this off, set `linkify` to `no`:
 
 ```text

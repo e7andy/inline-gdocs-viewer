@@ -654,6 +654,17 @@ class InlineGoogleSpreadsheetViewerPlugin {
     }
 
     /**
+     * Whether a yes/no shortcode attribute is turned on.
+     *
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    private static function isEnabled ( $value ) {
+        return in_array( strtolower( trim( (string) $value ) ), array( '1', 'yes', 'true', 'on' ), true );
+    }
+
+    /**
      * Whether a content type (without parameters such as charset) is CSV.
      *
      * @param string $content_type
@@ -1017,14 +1028,16 @@ class InlineGoogleSpreadsheetViewerPlugin {
     private function dataToHtml ( $r, $options, $caption = '' ) {
         self::enqueueTableAssets();
 
-        if ( (int) $options['strip'] > 0 ) {
-            $r = array_slice( $r, (int) $options['strip'] ); // discard
-        }
-
-        // Split into table headers and body.
-        $thead = ( (int) $options['header_rows'] ) ? array_splice( $r, 0, (int) $options['header_rows'] ) : array_splice( $r, 0, 1 );
-        $tfoot = ( (int) $options['footer_rows'] ) ? array_splice( $r, -(int) $options['footer_rows'] ) : array();
-        $tbody = $r;
+        // Split into table headers and body. Keys keep each row's index in
+        // the data source, which cell colors are looked up by.
+        $r      = array_slice( array_values( $r ), max( 0, (int) $options['strip'] ), null, true );
+        $h      = (int) $options['header_rows'] ? (int) $options['header_rows'] : 1;
+        $f      = max( 0, (int) $options['footer_rows'] );
+        $thead  = array_slice( $r, 0, $h, true );
+        $rest   = array_slice( $r, $h, null, true );
+        $tfoot  = $f ? array_slice( $rest, -$f, null, true ) : array();
+        $tbody  = $f ? array_slice( $rest, 0, -$f, true ) : $rest;
+        $colors = isset( $options['_cell_colors'] ) && is_array( $options['_cell_colors'] ) ? $options['_cell_colors'] : array();
 
         $ir = 1; // row number counter
         $ic = 1; // column number counter
@@ -1049,14 +1062,14 @@ class InlineGoogleSpreadsheetViewerPlugin {
         }
 
         $html .= "<thead>\n";
-        foreach ( $thead as $v ) {
+        foreach ( $thead as $i => $v ) {
             $html .= '<tr id="' . esc_attr( $id ) . '-row-' . esc_attr( $ir ) . '"';
             $html .= ' class="row-' . esc_attr( $ir ) . ' ' . esc_attr( $this->evenOrOdd( $ir ) ) . '">';
             $ir++;
             $ic = 1; // reset column counting
             foreach ( $v as $th ) {
                 $th = nl2br( esc_html( $th ) );
-                $html .= '<th class="col-' . esc_attr( $ic ) . ' ' . esc_attr( $this->evenOrOdd( $ic ) ) . '">';
+                $html .= '<th class="col-' . esc_attr( $ic ) . ' ' . esc_attr( $this->evenOrOdd( $ic ) ) . '"' . self::cellColorStyle( $colors, $i, $ic - 1 ) . '>';
                 $html .= "<div>$th</div>";
                 $html .= '</th>';
                 $ic++;
@@ -1067,7 +1080,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
 
         if ( $tfoot ) {
             $html .= "<tfoot>\n";
-            foreach ( $tfoot as $v ) {
+            foreach ( $tfoot as $i => $v ) {
                 $html .= '<tr id="' . esc_attr( $id ) . '-row-' . esc_attr( $ir ) . '"';
                 $html .= ' class="row-' . esc_attr( $ir ) . ' ' . esc_attr( $this->evenOrOdd( $ir ) ) . '">';
                 $ir++;
@@ -1075,7 +1088,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
                 foreach ( $v as $td ) {
                     $td = nl2br( esc_html( $td ) );
                     $el = ( $ic <= (int) $options['header_cols'] ) ? 'th' : 'td';
-                    $html .= "<$el class=\"col-$ic " . $this->evenOrOdd( $ic ) . "\">$td</$el>";
+                    $html .= "<$el class=\"col-$ic " . $this->evenOrOdd( $ic ) . '"' . self::cellColorStyle( $colors, $i, $ic - 1 ) . ">$td</$el>";
                     $ic++;
                 }
                 $html .= "</tr>";
@@ -1084,7 +1097,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
         }
 
         $html .= "<tbody>\n";
-        foreach ( $tbody as $v ) {
+        foreach ( $tbody as $i => $v ) {
             $html .= '<tr id="' . esc_attr( $id ) . '-row-' . esc_attr( $ir ) . '"';
             $html .= ' class="row-' . esc_attr( $ir ) . ' ' . esc_attr( $this->evenOrOdd( $ir ) ) . '">';
             $ir++;
@@ -1092,7 +1105,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
             foreach ( $v as $td ) {
                 $td = nl2br( esc_html( $td ) );
                 $el = ( $ic <= (int) $options['header_cols'] ) ? 'th' : 'td';
-                $html .= "<$el class=\"col-$ic " . $this->evenOrOdd( $ic ) . "\">$td</$el>";
+                $html .= "<$el class=\"col-$ic " . $this->evenOrOdd( $ic ) . '"' . self::cellColorStyle( $colors, $i, $ic - 1 ) . ">$td</$el>";
                 $ic++;
             }
             $html .= "</tr>";
@@ -1136,6 +1149,196 @@ class InlineGoogleSpreadsheetViewerPlugin {
             }
         }
         return $tags->get_updated_html();
+    }
+
+    /**
+     * Returns a `style` attribute for a cell's background color, if it has one.
+     *
+     * @param array $colors Colors by row and column index, from getSheetCellColors().
+     * @param int   $row    Row index in the data source.
+     * @param int   $column Column index in the data source.
+     *
+     * @return string
+     */
+    private static function cellColorStyle ( array $colors, $row, $column ) {
+        if ( empty( $colors[ $row ][ $column ] ) ) {
+            return '';
+        }
+        return ' style="background-color: ' . esc_attr( $colors[ $row ][ $column ] ) . '"';
+    }
+
+    /**
+     * Returns a CSS color if it is a safe, non-white color value, or null.
+     *
+     * Only hex colors and rgb()/rgba() values are accepted, so nothing else
+     * from Google's HTML can reach the page. White is left out, so that
+     * uncolored cells keep the table's own style.
+     *
+     * @param string $value
+     *
+     * @return string|null
+     */
+    private static function sanitizeCellColor ( $value ) {
+        $value = strtolower( trim( (string) $value ) );
+        $value = trim( preg_replace( '/\s*!important$/', '', $value ) );
+        $hex   = '/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/';
+        $rgb   = '/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*(?:0|1|0?\.\d+)\s*)?\)$/';
+        if ( ! preg_match( $hex, $value ) && ! preg_match( $rgb, $value ) ) {
+            return null;
+        }
+        $white = array( '#fff', '#ffff', '#ffffff', '#ffffffff', 'rgb(255,255,255)', 'rgba(255,255,255,1)' );
+        if ( in_array( preg_replace( '/\s+/', '', $value ), $white, true ) ) {
+            return null;
+        }
+        return $value;
+    }
+
+    /**
+     * Reads cell background colors from a Google Sheet's embed view
+     * (`/htmlembed/sheet?gid=...`), which, unlike the CSV export, keeps the
+     * sheet's formatting.
+     *
+     * Google doesn't document this HTML, so any problem (a failed request,
+     * a changed format) just means no colors; the table still renders.
+     *
+     * @param array $x Shortcode attributes.
+     *
+     * @return array Colors by row index and column index, matching the CSV export.
+     */
+    private function getSheetCellColors ( $x ) {
+        $parts = wp_parse_url( (string) $x['key'] );
+        $path  = is_array( $parts ) && isset( $parts['path'] ) ? $parts['path'] : '';
+        if ( preg_match( '!/spreadsheets/d/([A-Za-z0-9_-]+)!', $path, $m ) ) {
+            $id = $m[1];
+        } elseif ( preg_match( '/^[A-Za-z0-9_-]+$/', $path ) ) {
+            $id = $path; // A bare sheet ID.
+        } else {
+            return array();
+        }
+        $gid = '';
+        if ( ! empty( $parts['fragment'] ) ) {
+            parse_str( $parts['fragment'], $frag );
+            $gid = isset( $frag['gid'] ) ? (string) $frag['gid'] : '';
+        }
+        if ( '' === $gid && false !== $x['gid'] ) {
+            $gid = (string) $x['gid'];
+        }
+        // Google's own request options, not the author's http_opts.
+        $google = array( 'http_opts' => false, 'use_cache' => $x['use_cache'], 'expire_in' => $x['expire_in'] );
+        try {
+            if ( ! preg_match( '/^\d+$/', $gid ) ) {
+                // Without a gid, the CSV export uses the first tab. The
+                // embed page for all tabs lists their gids in order.
+                $tabs = $this->fetchData( "https://docs.google.com/spreadsheets/d/$id/htmlembed", $google );
+                if ( ! preg_match( '/[?&]gid=(\d+)/', $tabs['body'], $gm ) ) {
+                    return array();
+                }
+                $gid = $gm[1];
+            }
+            $embed = $this->fetchData( "https://docs.google.com/spreadsheets/d/$id/htmlembed/sheet?gid=$gid", $google );
+        } catch ( \Exception $e ) {
+            return array();
+        }
+        return self::parseSheetCellColors( $embed['body'] );
+    }
+
+    /**
+     * Parses cell background colors out of a sheet's embed HTML.
+     *
+     * Google styles cells with classes (`.s3{background-color:#d9ead3;...}`).
+     * Each table row starts with a header whose id holds the sheet row
+     * (`0R5` = row index 5), and the column headers hold the sheet columns
+     * (`0C2` = column index 2), so hidden columns, frozen-pane dividers, and
+     * merged cells don't shift the positions.
+     *
+     * @param string $html
+     *
+     * @return array Colors by row index and column index.
+     */
+    public static function parseSheetCellColors ( $html ) {
+        $class_colors = array();
+        if ( preg_match_all( '/\.s(\d+)\s*\{([^}]*)\}/', (string) $html, $rules, PREG_SET_ORDER ) ) {
+            foreach ( $rules as $rule ) {
+                if ( preg_match( '/(?:^|;)\s*background-color\s*:\s*([^;]+)/i', $rule[2], $bg ) ) {
+                    $class_colors[ 's' . $rule[1] ] = self::sanitizeCellColor( $bg[1] );
+                }
+            }
+        }
+
+        $doc      = new \DOMDocument();
+        $previous = libxml_use_internal_errors( true );
+        $loaded   = '' !== trim( (string) $html ) && $doc->loadHTML( '<?xml encoding="utf-8"?>' . $html );
+        libxml_clear_errors();
+        libxml_use_internal_errors( $previous );
+        if ( ! $loaded ) {
+            return array();
+        }
+        $xp    = new \DOMXPath( $doc );
+        $table = $xp->query( '//table[contains(concat(" ", normalize-space(@class), " "), " waffle ")]' )->item( 0 );
+        if ( ! $table ) {
+            return array();
+        }
+
+        // Sheet column index for each cell position (null for dividers).
+        $columns = array();
+        $header  = $xp->query( './thead/tr[1]/th', $table );
+        for ( $i = 1; $i < $header->length; $i++ ) { // Skip the row-number column.
+            $columns[] = preg_match( '/^\d+C(\d+)$/', $header->item( $i )->getAttribute( 'id' ), $m ) ? (int) $m[1] : null;
+        }
+
+        $grid = array(); // Color by table row position and cell position.
+        $rows = array(); // Sheet row index by table row position.
+        $pos  = 0;
+        foreach ( $xp->query( './tbody/tr', $table ) as $tr ) {
+            $cell = 0;
+            $seen_header = false;
+            foreach ( $tr->childNodes as $node ) {
+                if ( ! $node instanceof \DOMElement ) {
+                    continue;
+                }
+                if ( ! $seen_header && 'th' === $node->nodeName ) {
+                    $seen_header = true;
+                    if ( preg_match( '/^\d+R(\d+)$/', $node->getAttribute( 'id' ), $m ) ) {
+                        $rows[ $pos ] = (int) $m[1];
+                    }
+                    continue;
+                }
+                if ( 'td' !== $node->nodeName ) {
+                    continue;
+                }
+                while ( array_key_exists( $cell, isset( $grid[ $pos ] ) ? $grid[ $pos ] : array() ) ) {
+                    $cell++; // Taken by a merged cell from a row above.
+                }
+                $color = null;
+                foreach ( preg_split( '/\s+/', trim( $node->getAttribute( 'class' ) ) ) as $class ) {
+                    if ( isset( $class_colors[ $class ] ) ) {
+                        $color = $class_colors[ $class ];
+                    }
+                }
+                if ( preg_match( '/(?:^|;)\s*background-color\s*:\s*([^;]+)/i', $node->getAttribute( 'style' ), $bg ) ) {
+                    $color = self::sanitizeCellColor( $bg[1] );
+                }
+                $colspan = max( 1, (int) $node->getAttribute( 'colspan' ) );
+                $rowspan = max( 1, (int) $node->getAttribute( 'rowspan' ) );
+                for ( $r = 0; $r < $rowspan; $r++ ) {
+                    for ( $c = 0; $c < $colspan; $c++ ) {
+                        $grid[ $pos + $r ][ $cell + $c ] = $color;
+                    }
+                }
+                $cell += $colspan;
+            }
+            $pos++;
+        }
+
+        $colors = array();
+        foreach ( $rows as $p => $row ) {
+            foreach ( isset( $grid[ $p ] ) ? $grid[ $p ] : array() as $cell => $color ) {
+                if ( null !== $color && isset( $columns[ $cell ] ) ) {
+                    $colors[ $row ][ $columns[ $cell ] ] = $color;
+                }
+            }
+        }
+        return $colors;
     }
 
     /**
@@ -1352,6 +1555,7 @@ class InlineGoogleSpreadsheetViewerPlugin {
             'lang'     => get_bloginfo('language'),
             'linkify'  => true,                 // Whether to run make_clickable() on parsed data.
             'link_target' => '_blank',          // Where links made by linkify open: _blank (new tab) or _self.
+            'cell_colors' => false,             // Google Sheets only: show the sheet's cell background colors.
             'query'    => false,                // Google Visualization Query Language querystring
             'chart'    => false,                // Type of Chart (for an interactive chart)
 
@@ -1595,6 +1799,11 @@ class InlineGoogleSpreadsheetViewerPlugin {
 
         if ( 'spreadsheet' === $key_type && ! $is_csv ) {
             throw new \RuntimeException( self::sheetNotSharedMessage() );
+        }
+
+        // Cell colors match rows by position, which a query changes.
+        if ( 'spreadsheet' === $key_type && self::isEnabled( $x['cell_colors'] ) && '' === (string) $x['query'] ) {
+            $x['_cell_colors'] = $this->getSheetCellColors( $x );
         }
 
         return $this->csvToDataTable( $http_response['body'], $x, $content, 'csv' === $key_type ? $x['query'] : '' );
